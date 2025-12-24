@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg             # High-speed Postgres/Hologres driver
+jinja2
+python-multipart    # For login forms
+pydantic-settings
+passlib[bcrypt]     # Security
+python-jose[cryptography]         # Token management
+aiofiles            # Async file handling
+python-dotenv
+email-validator

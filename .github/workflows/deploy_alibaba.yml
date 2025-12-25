@@ -62,5 +62,4 @@ jobs:
           --endpoint sae.ap-northeast-1.aliyuncs.com \
           --AppId ${{ secrets.ALIYUN_SAE_APP_ID }} \
           --ImageUrl ${{ env.IMAGE_URL }} \
-          --UpdateStrategy type=GrayBatchUpdate \
           --MinReadyInstances 1

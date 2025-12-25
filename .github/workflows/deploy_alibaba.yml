@@ -1,0 +1,57 @@
+name: Deploy to Alibaba Cloud SAE
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  # This constructs the full image URL automatically
+  IMAGE_URL: ${{ secrets.ALIYUN_REGISTRY }}/${{ secrets.ALIYUN_NAMESPACE }}/${{ secrets.ALIYUN_IMAGE_NAME }}:${{ github.sha }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # 1. Login to Alibaba ACR (Just like Azure ACR)
+    - name: Login to Alibaba Cloud ACR
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ secrets.ALIYUN_REGISTRY }}
+        username: ${{ secrets.ALIYUN_REGISTRY_USER }}
+        password: ${{ secrets.ALIYUN_REGISTRY_PWD }}
+
+    # 2. Build and Push Docker Image
+    - name: Build and Push Image
+      run: |
+        docker build -t ${{ env.IMAGE_URL }} .
+        docker push ${{ env.IMAGE_URL }}
+
+    # 3. Install Alibaba Cloud CLI (Equivalent to 'az' CLI)
+    - name: Install Aliyun CLI
+      run: |
+        curl -o aliyun-cli-linux-3.0.124-amd64.tgz https://aliyuncli.alicdn.com/aliyun-cli-linux-3.0.124-amd64.tgz
+        tar -xvzf aliyun-cli-linux-3.0.124-amd64.tgz
+        sudo mv aliyun /usr/local/bin/
+
+    # 4. Configure Credentials
+    - name: Configure Aliyun CLI
+      run: |
+        aliyun configure set \
+          --profile default \
+          --mode AK \
+          --region ${{ secrets.ALIYUN_REGION_ID }} \
+          --access-key-id ${{ secrets.ALIYUN_ACCESS_KEY }} \
+          --access-key-secret ${{ secrets.ALIYUN_ACCESS_SECRET }}
+
+    # 5. Deploy to SAE (Equivalent to 'az containerapp update')
+    - name: Deploy to SAE
+      run: |
+        aliyun sae DeployApplication \
+          --AppId ${{ secrets.ALIYUN_SAE_APP_ID }} \
+          --ImageUrl ${{ env.IMAGE_URL }} \
+          --UpdateStrategy type=GrayBatchUpdate \
+          --MinReadyInstances 1

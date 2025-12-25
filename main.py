@@ -17,6 +17,12 @@ app.include_router(blacklist.router)
 app.include_router(features.router)
 app.include_router(decisions.router)
 
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
+    
 @app.get("/")
 async def root():
     return RedirectResponse(url="/login")

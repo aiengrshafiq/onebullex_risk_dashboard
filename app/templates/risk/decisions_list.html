@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Decision Logs{% endblock %}
+{% block page_title %}Risk Decision History{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-secondary">
+    <div class="card-header bg-transparent border-bottom border-secondary py-3">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-4">
+                <h5 class="mb-0 text-white">Decision Audit Log</h5>
+                <small class="text-muted">{{ total_records }} Decisions Recorded</small>
+            </div>
+            <div class="col-md-8">
+                <form method="get" class="d-flex gap-2 justify-content-end">
+                    <select name="source" class="form-select bg-dark text-white border-secondary" style="width: auto;">
+                        <option value="ALL" {% if source == 'ALL' %}selected{% endif %}>All Sources</option>
+                        <option value="RULE_ENGINE_RULES" {% if source == 'RULE_ENGINE_RULES' %}selected{% endif %}>Rule Engine</option>
+                        <option value="AI_AGENT_REVIEW" {% if source == 'AI_AGENT_REVIEW' %}selected{% endif %}>AI Agent</option>
+                    </select>
+                    <input type="text" name="q" class="form-control bg-dark text-white border-secondary" 
+                           placeholder="Search User or Txn ID..." value="{{ q }}" style="width: 250px;">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
+                    {% if q or source != 'ALL' %}
+                    <a href="/decisions" class="btn btn-outline-secondary" title="Reset"><i class="fas fa-undo"></i></a>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th class="ps-4">Time / Source</th>
+                    <th>Transaction / User</th>
+                    <th class="text-center">Decision</th>
+                    <th class="text-center">Threat</th>
+                    <th>Narrative</th>
+                    <th class="text-end pe-4">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td class="ps-4">
+                        <div class="text-white small mb-1">{{ log.decision_timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</div>
+                        {% if log.decision_source == 'AI_AGENT_REVIEW' %}
+                            <span class="badge bg-info text-dark"><i class="fas fa-robot me-1"></i>AI AGENT</span>
+                        {% else %}
+                            <span class="badge bg-secondary border border-secondary"><i class="fas fa-cogs me-1"></i>RULES</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="font-monospace text-info small">{{ log.txn_id }}</div>
+                        <div class="text-muted small">User: <span class="text-light">{{ log.user_code }}</span></div>
+                    </td>
+                    <td class="text-center">
+                        {% if log.decision == 'PASS' %}
+                            <span class="badge bg-success-subtle text-success border border-success px-3">PASS</span>
+                        {% elif log.decision == 'REJECT' %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger px-3">REJECT</span>
+                        {% else %}
+                            <span class="badge bg-warning-subtle text-warning border border-warning px-3">HOLD</span>
+                        {% endif %}
+                        <div class="mt-1 small text-muted">{{ (log.confidence * 100)|round|int }}% Conf</div>
+                    </td>
+                    <td class="text-center">
+                        {% if log.primary_threat and log.primary_threat != 'NONE' %}
+                            <span class="badge bg-danger">{{ log.primary_threat }}</span>
+                        {% else %}
+                            <span class="text-muted small">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-secondary small" style="max-width: 300px;">
+                        <div class="text-truncate">{{ log.narrative }}</div>
+                    </td>
+                    <td class="text-end pe-4">
+                        <button class="btn btn-sm btn-outline-light view-log-btn" data-id="{{ log.log_id }}">
+                            <i class="fas fa-file-alt"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center py-5 text-muted">No decisions found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card-footer bg-transparent border-top border-secondary py-3">
+        <nav>
+            <ul class="pagination justify-content-end mb-0">
+                <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                    <a class="page-link bg-dark border-secondary text-white" href="?page={{ page-1 }}&q={{ q }}&source={{ source }}">Previous</a>
+                </li>
+                <li class="page-item disabled"><span class="page-link bg-transparent border-0 text-muted">Page {{ page }} of {{ total_pages }}</span></li>
+                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                    <a class="page-link bg-dark border-secondary text-white" href="?page={{ page+1 }}&q={{ q }}&source={{ source }}">Next</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<div class="modal fade" id="logModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content bg-dark border border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="fas fa-search-dollar me-2 text-primary"></i>Decision Analysis #<span id="modal_log_id"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-4">
+                    <div class="col-lg-6 border-end border-secondary">
+                        <h6 class="text-uppercase text-muted small mb-3">Decision Logic</h6>
+                        
+                        <div class="alert alert-dark border-secondary d-flex justify-content-between align-items-center">
+                            <span id="modal_decision_badge" class="badge fs-6"></span>
+                            <span class="text-muted small"><i class="fas fa-stopwatch me-1"></i> <span id="modal_latency"></span> ms</span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="text-secondary small">Narrative</label>
+                            <p class="text-white lead fs-6" id="modal_narrative"></p>
+                        </div>
+
+                        <div id="ai_reasoning_wrapper" style="display:none;">
+                            <label class="text-info small mb-2"><i class="fas fa-brain me-1"></i> AI Agent Chain of Thought</label>
+                            <div class="bg-black p-3 rounded border border-info border-opacity-25 text-light small" 
+                                 id="modal_reasoning" 
+                                 style="white-space: pre-wrap; line-height: 1.6;"></div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <h6 class="text-uppercase text-muted small mb-3">Feature Snapshot (At Decision Time)</h6>
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-sm table-dark table-striped small mb-0">
+                                <tbody id="modal_features_body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    $(".view-log-btn").click(function() {
+        const logId = $(this).data("id");
+        $("#modal_log_id").text(logId);
+        
+        // Clear previous data
+        $("#modal_features_body").empty();
+        $("#ai_reasoning_wrapper").hide();
+        
+        $.ajax({
+            url: "/decisions/" + logId,
+            type: "GET",
+            success: function(data) {
+                // 1. Basic Info
+                $("#modal_latency").text(data.processing_time_ms);
+                $("#modal_narrative").text(data.narrative);
+                
+                // Badge Logic
+                let badgeClass = "bg-secondary";
+                if(data.decision === 'PASS') badgeClass = "bg-success";
+                if(data.decision === 'REJECT') badgeClass = "bg-danger";
+                if(data.decision === 'HOLD') badgeClass = "bg-warning text-dark";
+                $("#modal_decision_badge").attr("class", "badge fs-6 " + badgeClass).text(data.decision);
+
+                // 2. AI Reasoning Formatting
+                if(data.decision_source === 'AI_AGENT_REVIEW' && data.llm_reasoning) {
+                    // Formatting Steps: Add bolding and line breaks for "Step X:"
+                    let formatted = data.llm_reasoning.replace(/(Step \d+:)/g, '<br><strong class="text-info">$1</strong>');
+                    // Clean up leading <br> if exists
+                    if(formatted.startsWith('<br>')) formatted = formatted.substring(4);
+                    
+                    $("#modal_reasoning").html(formatted);
+                    $("#ai_reasoning_wrapper").show();
+                }
+
+                // 3. Render Features Snapshot (JSON)
+                let featuresHtml = "";
+                if(data.features_snapshot) {
+                    // Sort keys for better readability
+                    const sortedKeys = Object.keys(data.features_snapshot).sort();
+                    
+                    for(const key of sortedKeys) {
+                        let val = data.features_snapshot[key];
+                        // Highlight logic
+                        let valClass = "text-light";
+                        if(val === true) { val = "TRUE"; valClass = "text-success fw-bold"; }
+                        if(val === false) { val = "FALSE"; valClass = "text-muted"; }
+                        if(val === null) { val = "null"; valClass = "text-muted fst-italic"; }
+                        
+                        featuresHtml += `<tr><td class="text-secondary">${key}</td><td class="font-monospace ${valClass}">${val}</td></tr>`;
+                    }
+                } else {
+                    featuresHtml = "<tr><td colspan='2' class='text-muted'>No snapshot data available.</td></tr>";
+                }
+                $("#modal_features_body").html(featuresHtml);
+
+                $("#logModal").modal('show');
+            },
+            error: function() { alert("Failed to fetch log details."); }
+        });
+    });
+});
+</script>
+{% endblock %}

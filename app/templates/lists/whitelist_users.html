@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}User Whitelist{% endblock %}
+{% block page_title %}User Whitelist{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center py-3 bg-transparent border-bottom-0">
+        <h5 class="mb-0 text-white">Whitelisted Users</h5>
+        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addWLUserModal">
+            <i class="fas fa-plus me-2"></i>Add User
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th class="ps-4">User Code</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Expires At</th>
+                    <th class="text-end pe-4">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td class="ps-4 fw-bold text-info">{{ user.user_code }}</td>
+                    <td>{{ user.description }}</td>
+                    <td><span class="badge rounded-pill text-bg-success">{{ user.status }}</span></td>
+                    <td class="text-muted small">
+                        {% if user.expires_at %}{{ user.expires_at.strftime('%Y-%m-%d') }}{% else %}Never{% endif %}
+                    </td>
+                    <td class="text-end pe-4">
+                    <button class="btn btn-sm btn-outline-primary edit-btn" 
+                            data-code="{{ user.user_code }}"
+                            data-desc="{{ user.description }}"
+                            data-status="{{ user.status }}"
+                            data-expires="{{ user.expires_at }}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger delete-btn" data-code="{{ user.user_code }}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addWLUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Whitelist User</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="wlUserForm">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">User Code</label>
+                        <input type="text" class="form-control bg-black text-white border-secondary" id="wl_user_code" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Description</label>
+                        <input type="text" class="form-control bg-black text-white border-secondary" id="wl_user_desc" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Expires At (Optional)</label>
+                        <input type="date" class="form-control bg-black text-white border-secondary" id="wl_user_expires">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-primary" id="saveWLUserBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Edit User Whitelist</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">User Code</label>
+                        <input type="text" class="form-control bg-dark text-secondary border-secondary" id="edit_code" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Description</label>
+                        <input type="text" class="form-control bg-black text-white border-secondary" id="edit_desc">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Status</label>
+                        <select class="form-select bg-black text-white border-secondary" id="edit_status">
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="INACTIVE">INACTIVE</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Expires At</label>
+                        <input type="date" class="form-control bg-black text-white border-secondary" id="edit_expires">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-primary" id="updateUserBtn">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $("#saveWLUserBtn").click(function() {
+        const payload = {
+            user_code: $("#wl_user_code").val(),
+            description: $("#wl_user_desc").val(),
+            expires_at: $("#wl_user_expires").val() ? new Date($("#wl_user_expires").val()).toISOString() : null,
+            status: "ACTIVE"
+        };
+
+        $.ajax({
+            url: "/whitelist/users/add",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(payload),
+            success: function() { location.reload(); },
+            error: function(xhr) { alert("Error: " + xhr.responseText); }
+        });
+    });
+    // EDIT
+    $(".edit-btn").click(function() {
+        $("#edit_code").val($(this).data("code"));
+        $("#edit_desc").val($(this).data("desc"));
+        $("#edit_status").val($(this).data("status"));
+        let dateStr = $(this).data("expires");
+        $("#edit_expires").val(dateStr && dateStr != "None" ? dateStr.split('T')[0] : "");
+        $('#editUserModal').modal('show');
+    });
+
+    $("#updateUserBtn").click(function() {
+        const code = $("#edit_code").val();
+        const payload = {
+            user_code: code,
+            description: $("#edit_desc").val(),
+            status: $("#edit_status").val(),
+            expires_at: $("#edit_expires").val() ? new Date($("#edit_expires").val()).toISOString() : null
+        };
+        $.ajax({
+            url: "/whitelist/users/" + code,
+            type: "PUT",
+            contentType: "application/json",
+            data: JSON.stringify(payload),
+            success: function() { location.reload(); },
+            error: function(xhr) { alert("Error: " + xhr.responseText); }
+        });
+    });
+
+    // DELETE
+    $(".delete-btn").click(function() {
+        if(!confirm("Remove user from whitelist?")) return;
+        const code = $(this).data("code");
+        $.ajax({
+            url: "/whitelist/users/" + code,
+            type: "DELETE",
+            success: function() { location.reload(); },
+            error: function(xhr) { alert("Error: " + xhr.responseText); }
+        });
+    });
+</script>
+{% endblock %}

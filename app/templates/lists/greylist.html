@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Greylist Manager{% endblock %}
+{% block page_title %}Greylist Management{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center py-3 bg-transparent border-bottom-0">
+        <h5 class="mb-0 text-white">Greylisted Entities</h5>
+        <button class="btn btn-warning btn-sm text-dark fw-bold" data-bs-toggle="modal" data-bs-target="#addGreylistModal">
+            <i class="fas fa-plus me-2"></i>Add to Greylist
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4">Entity Value</th>
+                        <th>Type</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-white">{{ item.entity_value }}</td>
+                        <td><span class="badge bg-secondary border border-secondary">{{ item.entity_type }}</span></td>
+                        <td class="text-muted">{{ item.reason }}</td>
+                        <td>
+                            <span class="badge rounded-pill text-bg-{{ 'success' if item.status == 'ACTIVE' else 'secondary' }}">{{ item.status }}</span>
+                        </td>
+                        <td class="text-end pe-4">
+                            <button class="btn btn-sm btn-outline-primary edit-btn" 
+                                    data-val="{{ item.entity_value }}" 
+                                    data-type="{{ item.entity_type }}"
+                                    data-reason="{{ item.reason }}"
+                                    data-status="{{ item.status }}"
+                                    data-expires="{{ item.expires_at }}"
+                                    title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger delete-btn" 
+                                    data-val="{{ item.entity_value }}" 
+                                    data-type="{{ item.entity_type }}"
+                                    title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addGreylistModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Add to Greylist</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addGreylistForm">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Entity Type</label>
+                        <select class="form-select bg-black text-white border-secondary" id="entity_type">
+                            <option value="USER_CODE">User Code</option>
+                            <option value="IP_ADDRESS">IP Address</option>
+                            <option value="DEVICE_FINGERPRINT">Device Fingerprint</option>
+                            <option value="DESTINATION_ADDRESS">Destination Address</option>
+                            <option value="EMAIL_DOMAIN">Email Domain</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Entity Value</label>
+                        <input type="text" class="form-control bg-black text-white border-secondary" id="entity_value" placeholder="e.g. 192.168.1.1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Reason</label>
+                        <textarea class="form-control bg-black text-white border-secondary" id="reason" rows="2" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Expires At (Optional)</label>
+                        <input type="date" class="form-control bg-black text-white border-secondary" id="expires_at">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-primary" id="saveGreylistBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="editGreylistModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Edit Entry</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <input type="hidden" id="edit_val">
+                    <input type="hidden" id="edit_type">
+                    
+                    <div class="mb-3">
+                        <label class="text-secondary small">Entity</label>
+                        <div class="fw-bold text-white" id="edit_display_title"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Reason</label>
+                        <textarea class="form-control bg-black text-white border-secondary" id="edit_reason" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Status</label>
+                        <select class="form-select bg-black text-white border-secondary" id="edit_status">
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="INACTIVE">INACTIVE</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Expires At</label>
+                        <input type="date" class="form-control bg-black text-white border-secondary" id="edit_expires">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-primary" id="updateGreylistBtn">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $("#saveGreylistBtn").click(function() {
+        const payload = {
+            entity_type: $("#entity_type").val(),
+            entity_value: $("#entity_value").val(),
+            reason: $("#reason").val(),
+            expires_at: $("#expires_at").val() ? new Date($("#expires_at").val()).toISOString() : null,
+            status: "ACTIVE"
+        };
+
+        $.ajax({
+            url: "/greylist/add",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(payload),
+            success: function() { location.reload(); },
+            error: function(xhr) { alert("Error: " + xhr.responseText); }
+        });
+    });
+    // --- EDIT ---
+    $(".edit-btn").click(function() {
+        const val = $(this).data("val");
+        const type = $(this).data("type");
+        
+        $("#edit_val").val(val);
+        $("#edit_type").val(type);
+        $("#edit_display_title").text(type + ": " + val);
+        $("#edit_reason").val($(this).data("reason"));
+        $("#edit_status").val($(this).data("status"));
+        
+        // Handle Date format for input
+        let dateStr = $(this).data("expires");
+        if(dateStr && dateStr != "None") {
+            $("#edit_expires").val(dateStr.split('T')[0]); 
+        } else {
+            $("#edit_expires").val("");
+        }
+
+        $('#editGreylistModal').modal('show');
+    });
+
+    $("#updateGreylistBtn").click(function() {
+        const payload = {
+            entity_value: $("#edit_val").val(),
+            entity_type: $("#edit_type").val(),
+            reason: $("#edit_reason").val(),
+            status: $("#edit_status").val(),
+            expires_at: $("#edit_expires").val() ? new Date($("#edit_expires").val()).toISOString() : null
+        };
+
+        $.ajax({
+            url: "/greylist/update",
+            type: "PUT",
+            contentType: "application/json",
+            data: JSON.stringify(payload),
+            success: function() { location.reload(); },
+            error: function(xhr) { alert("Error: " + xhr.responseText); }
+        });
+    });
+
+    // --- DELETE ---
+    $(".delete-btn").click(function() {
+        if(!confirm("Are you sure you want to remove this item from the Greylist?")) return;
+        
+        const val = $(this).data("val");
+        const type = $(this).data("type");
+        
+        // Send params in query string
+        $.ajax({
+            url: `/greylist/delete?entity_value=${encodeURIComponent(val)}&entity_type=${encodeURIComponent(type)}`,
+            type: "DELETE",
+            success: function() { location.reload(); },
+            error: function(xhr) { alert("Error: " + xhr.responseText); }
+        });
+    });
+</script>
+{% endblock %}

@@ -72,3 +72,34 @@ async def logout():
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie("access_token")
     return response
+
+
+# ================= USER MANAGEMENT =================
+
+@router.get("/users")
+async def list_users(request: Request, db: AsyncSession = Depends(get_db)):
+    """List all registered users."""
+    # Fetch users ordered by creation date
+    result = await db.execute(select(User).order_by(User.created_at.desc()))
+    users = result.scalars().all()
+    
+    return templates.TemplateResponse("auth/users_list.html", {
+        "request": request, 
+        "users": users
+    })
+
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Delete a specific user by ID."""
+    # 1. Find the user
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # 2. Delete
+    await db.delete(user)
+    await db.commit()
+    
+    return {"status": "success", "message": "User deleted"}

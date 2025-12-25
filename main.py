@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
-from app.routers import auth, risk_rules
+from app.routers import auth, risk_rules, lists, blacklist, features, decisions
 # We will import dashboard router later
 
 app = FastAPI(title="OneBullEx Risk Manager")
@@ -12,6 +12,10 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 # Include Routers
 app.include_router(auth.router)
 app.include_router(risk_rules.router)
+app.include_router(lists.router)
+app.include_router(blacklist.router)
+app.include_router(features.router)
+app.include_router(decisions.router)
 
 @app.get("/")
 async def root():

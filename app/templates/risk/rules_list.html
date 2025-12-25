@@ -48,19 +48,26 @@
                             <span class="badge rounded-pill text-bg-{{ 'success' if rule.status == 'ACTIVE' else 'secondary' }}">{{ rule.status }}</span>
                         </td>
                         <td class="text-end pe-4">
-                            <button class="btn btn-sm btn-outline-light me-1"><i class="fas fa-eye"></i></button>
-                            <!-- <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button> -->
-                             <button class="btn btn-sm btn-outline-primary edit-rule-btn" 
-                                data-id="{{ rule.rule_id }}"
-                                data-name="{{ rule.rule_name }}"
-                                data-logic="{{ rule.logic_expression }}"
-                                data-action="{{ rule.action }}"
-                                data-narrative="{{ rule.narrative }}"
-                                data-priority="{{ rule.priority }}"
-                                data-status="{{ rule.status }}"
-                                title="Edit Rule">
-                            <i class="fas fa-edit"></i>
-                        </button>
+                            <div class="d-flex justify-content-end gap-2">
+                                <button class="btn btn-sm btn-outline-light view-rule-btn" 
+                                        data-name="{{ rule.rule_name }}"
+                                        data-logic="{{ rule.logic_expression }}"
+                                        data-narrative="{{ rule.narrative }}"
+                                        title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary edit-rule-btn" 
+                                        data-id="{{ rule.rule_id }}"
+                                        data-name="{{ rule.rule_name }}"
+                                        data-logic="{{ rule.logic_expression }}"
+                                        data-action="{{ rule.action }}"
+                                        data-narrative="{{ rule.narrative }}"
+                                        data-priority="{{ rule.priority }}"
+                                        data-status="{{ rule.status }}"
+                                        title="Edit Rule">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -174,11 +181,43 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="viewRuleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title text-info"><i class="fas fa-info-circle me-2"></i>Rule Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6 class="text-muted text-uppercase small">Rule Name</h6>
+                <p id="view_rule_name" class="fw-bold fs-5 mb-3"></p>
+                
+                <h6 class="text-muted text-uppercase small">Logic</h6>
+                <div class="bg-black p-2 rounded border border-secondary mb-3">
+                    <code id="view_logic" class="text-warning" style="word-wrap: break-word;"></code>
+                </div>
+
+                <h6 class="text-muted text-uppercase small">Narrative</h6>
+                <p id="view_narrative" class="text-light"></p>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
     $(document).ready(function() {
+        // Open View Modal
+    $(".view-rule-btn").click(function() {
+        $("#view_rule_name").text($(this).data("name"));
+        $("#view_logic").text($(this).data("logic"));
+        $("#view_narrative").text($(this).data("narrative"));
+        $('#viewRuleModal').modal('show');
+    });
         // 1. Open Edit Modal and Populate Data
     $(".edit-rule-btn").click(function() {
         // Get data from button attributes

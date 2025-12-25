@@ -6,6 +6,7 @@ jinja2
 python-multipart    # For login forms
 pydantic-settings
 passlib[bcrypt]     # Security
+bcrypt<4.2
 python-jose[cryptography]         # Token management
 aiofiles            # Async file handling
 python-dotenv

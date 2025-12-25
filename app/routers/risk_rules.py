@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, Request, HTTPExcepti
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.core.database import get_db
 from app.models.risk_tables import RiskRule
 from app.schemas.risk import RiskRuleCreate
+from sqlalchemy import func
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -24,7 +25,17 @@ async def view_risk_rules(request: Request, db: AsyncSession = Depends(get_db)):
 @router.post("/risk-rules/add")
 async def create_risk_rule(rule: RiskRuleCreate, db: AsyncSession = Depends(get_db)):
     try:
+        # 1. Get the current maximum rule_id
+        # We use coalesce to handle the case where the table is empty (returns 0)
+        query = select(func.max(RiskRule.rule_id))
+        result = await db.execute(query)
+        max_id = result.scalar() or 0
+        
+        # 2. Calculate next ID
+        next_id = max_id + 1
+        # 3. Create the rule with the manual ID
         new_rule = RiskRule(
+            rule_id=next_id,
             rule_name=rule.rule_name,
             logic_expression=rule.logic_expression,
             action=rule.action,

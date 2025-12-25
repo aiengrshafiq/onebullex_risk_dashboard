@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}Blacklist Master Console{% endblock %}
+{% block page_title %}Blacklist Management{% endblock %}
+
+{% block content %}
+<ul class="nav nav-tabs border-secondary mb-4" id="blacklistTabs" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active text-light" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button">
+            <i class="fas fa-user-slash me-2"></i>Users
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link text-light" id="ips-tab" data-bs-toggle="tab" data-bs-target="#ips-pane" type="button">
+            <i class="fas fa-network-wired me-2"></i>IP Addresses
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link text-light" id="domains-tab" data-bs-toggle="tab" data-bs-target="#domains-pane" type="button">
+            <i class="fas fa-envelope me-2"></i>Email Domains
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link text-light" id="crypto-tab" data-bs-toggle="tab" data-bs-target="#crypto-pane" type="button">
+            <i class="fab fa-bitcoin me-2"></i>Crypto Addresses
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="blacklistTabsContent">
+
+    <div class="tab-pane fade show active" id="users-pane">
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger bg-opacity-10 border-bottom border-danger d-flex justify-content-between">
+                <h5 class="text-white mb-0">Blacklisted Users</h5>
+                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#addUserModal"><i class="fas fa-plus"></i> Add User</button>
+            </div>
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead><tr><th class="ps-4">User Code</th><th>Reason</th><th>Status</th><th>Expires</th><th class="text-end pe-4">Actions</th></tr></thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td class="ps-4 fw-bold text-white">{{ u.user_code }}</td>
+                            <td class="text-secondary">{{ u.reason }}</td>
+                            <td><span class="badge rounded-pill text-bg-{{ 'danger' if u.status == 'ACTIVE' else 'secondary' }}">{{ u.status }}</span></td>
+                            <td class="small text-muted">{{ u.expires_at.strftime('%Y-%m-%d') if u.expires_at else 'Never' }}</td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-light edit-user-btn" 
+                                    data-id="{{ u.user_code }}" data-reason="{{ u.reason }}" data-status="{{ u.status }}" data-exp="{{ u.expires_at }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-user-btn" data-id="{{ u.user_code }}"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="ips-pane">
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger bg-opacity-10 border-bottom border-danger d-flex justify-content-between">
+                <h5 class="text-white mb-0">Blacklisted IPs</h5>
+                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#addIPModal"><i class="fas fa-plus"></i> Add IP</button>
+            </div>
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead><tr><th class="ps-4">IP Address</th><th>Reason</th><th>Status</th><th>Expires</th><th class="text-end pe-4">Actions</th></tr></thead>
+                    <tbody>
+                        {% for ip in ips %}
+                        <tr>
+                            <td class="ps-4 font-monospace text-info">{{ ip.ip_address }}</td>
+                            <td class="text-secondary">{{ ip.reason }}</td>
+                            <td><span class="badge rounded-pill text-bg-{{ 'danger' if ip.status == 'ACTIVE' else 'secondary' }}">{{ ip.status }}</span></td>
+                            <td class="small text-muted">{{ ip.expires_at.strftime('%Y-%m-%d') if ip.expires_at else 'Never' }}</td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-light edit-ip-btn" 
+                                    data-id="{{ ip.ip_address }}" data-reason="{{ ip.reason }}" data-status="{{ ip.status }}" data-exp="{{ ip.expires_at }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-ip-btn" data-id="{{ ip.ip_address }}"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="domains-pane">
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger bg-opacity-10 border-bottom border-danger d-flex justify-content-between">
+                <h5 class="text-white mb-0">Blacklisted Domains</h5>
+                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#addDomainModal"><i class="fas fa-plus"></i> Add Domain</button>
+            </div>
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead><tr><th class="ps-4">Domain</th><th>Reason</th><th>Status</th><th>Expires</th><th class="text-end pe-4">Actions</th></tr></thead>
+                    <tbody>
+                        {% for d in domains %}
+                        <tr>
+                            <td class="ps-4 fw-bold text-white">{{ d.email_domain }}</td>
+                            <td class="text-secondary">{{ d.reason }}</td>
+                            <td><span class="badge rounded-pill text-bg-{{ 'danger' if d.status == 'ACTIVE' else 'secondary' }}">{{ d.status }}</span></td>
+                            <td class="small text-muted">{{ d.expires_at.strftime('%Y-%m-%d') if d.expires_at else 'Never' }}</td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-light edit-domain-btn" 
+                                    data-id="{{ d.email_domain }}" data-reason="{{ d.reason }}" data-status="{{ d.status }}" data-exp="{{ d.expires_at }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-domain-btn" data-id="{{ d.email_domain }}"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="crypto-pane">
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger bg-opacity-10 border-bottom border-danger d-flex justify-content-between">
+                <h5 class="text-white mb-0">Blacklisted Wallets</h5>
+                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#addAddrModal"><i class="fas fa-plus"></i> Add Wallet</button>
+            </div>
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead><tr><th class="ps-4">Address</th><th>Chain</th><th>Reason</th><th>Status</th><th>Expires</th><th class="text-end pe-4">Actions</th></tr></thead>
+                    <tbody>
+                        {% for a in addresses %}
+                        <tr>
+                            <td class="ps-4 font-monospace text-info small">{{ a.destination_address }}</td>
+                            <td><span class="badge bg-dark border border-secondary">{{ a.chain }}</span></td>
+                            <td class="text-secondary">{{ a.reason }}</td>
+                            <td><span class="badge rounded-pill text-bg-{{ 'danger' if a.status == 'ACTIVE' else 'secondary' }}">{{ a.status }}</span></td>
+                            <td class="small text-muted">{{ a.expires_at.strftime('%Y-%m-%d') if a.expires_at else 'Never' }}</td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-light edit-addr-btn" 
+                                    data-id="{{ a.destination_address }}" data-chain="{{ a.chain }}" data-reason="{{ a.reason }}" data-status="{{ a.status }}" data-exp="{{ a.expires_at }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-addr-btn" data-id="{{ a.destination_address }}"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="modal fade" id="addUserModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-dark border-secondary text-white"><div class="modal-header border-secondary"><h5 class="modal-title">Add Blacklist User</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="addUserForm">
+    <div class="mb-3"><label class="text-secondary">User Code</label><input type="text" class="form-control bg-black text-white border-secondary" id="new_user_code" required></div>
+    <div class="mb-3"><label class="text-secondary">Reason</label><textarea class="form-control bg-black text-white border-secondary" id="new_user_reason" required></textarea></div>
+    <div class="mb-3"><label class="text-secondary">Expires</label><input type="date" class="form-control bg-black text-white border-secondary" id="new_user_exp"></div>
+</form></div><div class="modal-footer border-secondary"><button class="btn btn-danger" onclick="saveUser()">Save</button></div></div></div></div>
+
+<div class="modal fade" id="addIPModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-dark border-secondary text-white"><div class="modal-header border-secondary"><h5 class="modal-title">Add Blacklist IP</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="addIPForm">
+    <div class="mb-3"><label class="text-secondary">IP Address</label><input type="text" class="form-control bg-black text-white border-secondary" id="new_ip_addr" required></div>
+    <div class="mb-3"><label class="text-secondary">Reason</label><textarea class="form-control bg-black text-white border-secondary" id="new_ip_reason" required></textarea></div>
+    <div class="mb-3"><label class="text-secondary">Expires</label><input type="date" class="form-control bg-black text-white border-secondary" id="new_ip_exp"></div>
+</form></div><div class="modal-footer border-secondary"><button class="btn btn-danger" onclick="saveIP()">Save</button></div></div></div></div>
+
+<div class="modal fade" id="addDomainModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-dark border-secondary text-white"><div class="modal-header border-secondary"><h5 class="modal-title">Add Blacklist Domain</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="addDomainForm">
+    <div class="mb-3"><label class="text-secondary">Domain</label><input type="text" class="form-control bg-black text-white border-secondary" id="new_domain_val" required></div>
+    <div class="mb-3"><label class="text-secondary">Reason</label><textarea class="form-control bg-black text-white border-secondary" id="new_domain_reason" required></textarea></div>
+    <div class="mb-3"><label class="text-secondary">Expires</label><input type="date" class="form-control bg-black text-white border-secondary" id="new_domain_exp"></div>
+</form></div><div class="modal-footer border-secondary"><button class="btn btn-danger" onclick="saveDomain()">Save</button></div></div></div></div>
+
+<div class="modal fade" id="addAddrModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-dark border-secondary text-white"><div class="modal-header border-secondary"><h5 class="modal-title">Add Blacklist Wallet</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="addAddrForm">
+    <div class="mb-3"><label class="text-secondary">Address</label><input type="text" class="form-control bg-black text-white border-secondary" id="new_addr_val" required></div>
+    <div class="mb-3"><label class="text-secondary">Chain</label><select class="form-select bg-black text-white border-secondary" id="new_addr_chain"><option>TRC20</option><option>ERC20</option><option>BTC</option><option>SOL</option></select></div>
+    <div class="mb-3"><label class="text-secondary">Reason</label><textarea class="form-control bg-black text-white border-secondary" id="new_addr_reason" required></textarea></div>
+    <div class="mb-3"><label class="text-secondary">Expires</label><input type="date" class="form-control bg-black text-white border-secondary" id="new_addr_exp"></div>
+</form></div><div class="modal-footer border-secondary"><button class="btn btn-danger" onclick="saveAddr()">Save</button></div></div></div></div>
+
+<div class="modal fade" id="editGenericModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-dark border-secondary text-white"><div class="modal-header border-secondary"><h5 class="modal-title">Edit Entry</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form>
+    <input type="hidden" id="edit_type">
+    <div class="mb-3"><label class="text-secondary">ID (Read Only)</label><input type="text" class="form-control bg-dark text-secondary border-secondary" id="edit_id" readonly></div>
+    <div class="mb-3" id="edit_chain_wrapper" style="display:none;"><label class="text-secondary">Chain</label><select class="form-select bg-black text-white border-secondary" id="edit_chain"><option>TRC20</option><option>ERC20</option><option>BTC</option><option>SOL</option></select></div>
+    <div class="mb-3"><label class="text-secondary">Reason</label><textarea class="form-control bg-black text-white border-secondary" id="edit_reason"></textarea></div>
+    <div class="mb-3"><label class="text-secondary">Status</label><select class="form-select bg-black text-white border-secondary" id="edit_status"><option>ACTIVE</option><option>INACTIVE</option></select></div>
+    <div class="mb-3"><label class="text-secondary">Expires</label><input type="date" class="form-control bg-black text-white border-secondary" id="edit_exp"></div>
+</form></div><div class="modal-footer border-secondary"><button class="btn btn-primary" onclick="submitEdit()">Update</button></div></div></div></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // --- HELPER TO FORMAT DATE ---
+    function fmtDate(val) { return (val && val !== 'None') ? new Date(val).toISOString() : null; }
+    function parseDateInput(val) { return (val && val !== 'None') ? val.split('T')[0] : ''; }
+
+    // ================= CREATE ACTIONS =================
+    function saveUser() {
+        $.ajax({ url: "/blacklist/user", type: "POST", contentType: "application/json",
+            data: JSON.stringify({ user_code: $("#new_user_code").val(), reason: $("#new_user_reason").val(), expires_at: fmtDate($("#new_user_exp").val()), status: "ACTIVE" }),
+            success: function() { location.reload(); }, error: function(x) { alert(x.responseText); } });
+    }
+    function saveIP() {
+        $.ajax({ url: "/blacklist/ip", type: "POST", contentType: "application/json",
+            data: JSON.stringify({ ip_address: $("#new_ip_addr").val(), reason: $("#new_ip_reason").val(), expires_at: fmtDate($("#new_ip_exp").val()), status: "ACTIVE" }),
+            success: function() { location.reload(); }, error: function(x) { alert(x.responseText); } });
+    }
+    function saveDomain() {
+        $.ajax({ url: "/blacklist/domain", type: "POST", contentType: "application/json",
+            data: JSON.stringify({ email_domain: $("#new_domain_val").val(), reason: $("#new_domain_reason").val(), expires_at: fmtDate($("#new_domain_exp").val()), status: "ACTIVE" }),
+            success: function() { location.reload(); }, error: function(x) { alert(x.responseText); } });
+    }
+    function saveAddr() {
+        $.ajax({ url: "/blacklist/address", type: "POST", contentType: "application/json",
+            data: JSON.stringify({ destination_address: $("#new_addr_val").val(), chain: $("#new_addr_chain").val(), reason: $("#new_addr_reason").val(), expires_at: fmtDate($("#new_addr_exp").val()), status: "ACTIVE" }),
+            success: function() { location.reload(); }, error: function(x) { alert(x.responseText); } });
+    }
+
+    // ================= DELETE ACTIONS =================
+    $(".delete-user-btn").click(function() { if(confirm("Delete?")) $.ajax({ url: "/blacklist/user/" + $(this).data("id"), type: "DELETE", success: function() { location.reload(); } }); });
+    $(".delete-ip-btn").click(function() { if(confirm("Delete?")) $.ajax({ url: "/blacklist/ip/" + $(this).data("id"), type: "DELETE", success: function() { location.reload(); } }); });
+    $(".delete-domain-btn").click(function() { if(confirm("Delete?")) $.ajax({ url: "/blacklist/domain/" + $(this).data("id"), type: "DELETE", success: function() { location.reload(); } }); });
+    $(".delete-addr-btn").click(function() { if(confirm("Delete?")) $.ajax({ url: "/blacklist/address/" + encodeURIComponent($(this).data("id")), type: "DELETE", success: function() { location.reload(); } }); });
+
+    // ================= EDIT ACTIONS =================
+    // We use one generic modal and configure it based on type
+    function openEdit(type, id, reason, status, exp, chain=null) {
+        $("#edit_type").val(type);
+        $("#edit_id").val(id);
+        $("#edit_reason").val(reason);
+        $("#edit_status").val(status);
+        $("#edit_exp").val(parseDateInput(exp));
+        
+        if(type === 'addr') {
+            $("#edit_chain_wrapper").show();
+            $("#edit_chain").val(chain);
+        } else {
+            $("#edit_chain_wrapper").hide();
+        }
+        $('#editGenericModal').modal('show');
+    }
+
+    $(".edit-user-btn").click(function() { openEdit('user', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp")); });
+    $(".edit-ip-btn").click(function() { openEdit('ip', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp")); });
+    $(".edit-domain-btn").click(function() { openEdit('domain', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp")); });
+    $(".edit-addr-btn").click(function() { openEdit('addr', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp"), $(this).data("chain")); });
+
+    function submitEdit() {
+        const type = $("#edit_type").val();
+        const id = $("#edit_id").val();
+        const payload = {
+            reason: $("#edit_reason").val(),
+            status: $("#edit_status").val(),
+            expires_at: fmtDate($("#edit_exp").val())
+        };
+
+        let url = "";
+        if(type === 'user') { url = "/blacklist/user/" + id; payload.user_code = id; }
+        else if(type === 'ip') { url = "/blacklist/ip/" + id; payload.ip_address = id; }
+        else if(type === 'domain') { url = "/blacklist/domain/" + id; payload.email_domain = id; }
+        else if(type === 'addr') { 
+            url = "/blacklist/address/" + encodeURIComponent(id); 
+            payload.destination_address = id; 
+            payload.chain = $("#edit_chain").val(); 
+        }
+
+        $.ajax({ url: url, type: "PUT", contentType: "application/json", data: JSON.stringify(payload),
+            success: function() { location.reload(); }, error: function(x) { alert("Error: " + x.responseText); }
+        });
+    }
+</script>
+{% endblock %}

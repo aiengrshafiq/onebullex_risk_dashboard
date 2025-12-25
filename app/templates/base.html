@@ -7,79 +7,99 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* Custom Dashboard Styles */
-        body { background-color: #0f111a; min-height: 100vh; overflow-x: hidden; }
+        /* --- FINTECH TERMINAL THEME --- */
+        body { background-color: #0b0c10; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow-x: hidden; }
         
-        /* Sidebar */
+        /* Sidebar Styling */
+        #wrapper { display: flex; width: 100%; transition: all 0.3s ease; }
         #sidebar-wrapper {
             min-height: 100vh;
             width: 260px;
-            background-color: #161925;
-            border-right: 1px solid #2c3042;
-            position: fixed;
-            top: 0; left: 0;
-            z-index: 1000;
+            background-color: #12141c;
+            border-right: 1px solid #232733;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
         }
-        .sidebar-heading { padding: 1.5rem; font-size: 1.5rem; font-weight: bold; color: #3b82f6; }
+        
+        /* Mobile: Hide Sidebar by default via negative margin */
+        @media (max-width: 768px) {
+            #sidebar-wrapper { margin-left: -260px; }
+            #wrapper.toggled #sidebar-wrapper { margin-left: 0; }
+        }
+
+        .sidebar-heading { padding: 1.5rem; font-size: 1.4rem; font-weight: 700; color: #10b981; border-bottom: 1px solid #232733; letter-spacing: 1px; }
         .list-group-item {
-            background-color: transparent; border: none; color: #a0aec0;
-            padding: 12px 25px; font-size: 0.95rem;
+            background-color: transparent; border: none; color: #8892b0;
+            padding: 14px 25px; font-size: 0.9rem; font-weight: 500;
         }
         .list-group-item:hover, .list-group-item.active {
-            background-color: #1e212d; color: #fff; border-right: 3px solid #3b82f6;
+            background-color: #1b1f2b; color: #fff; border-right: 3px solid #10b981;
         }
-        .list-group-item i { width: 25px; }
+        .list-group-item i { width: 25px; text-align: center; margin-right: 10px; }
 
-        /* Main Content */
-        #page-content-wrapper { margin-left: 260px; width: calc(100% - 260px); }
-        .navbar { background-color: #161925; border-bottom: 1px solid #2c3042; padding: 15px 30px; }
-        .container-fluid { padding: 30px; }
+        /* Page Content */
+        #page-content-wrapper { width: 100%; }
+        .navbar { background-color: #12141c; border-bottom: 1px solid #232733; padding: 10px 20px; }
         
-        /* Utility */
-        .card { background-color: #1e212d; border: 1px solid #2c3042; margin-bottom: 20px; }
-        .table { color: #e2e8f0; vertical-align: middle; }
-        .table thead th { background-color: #161925; color: #a0aec0; font-weight: 600; border-bottom: 2px solid #2c3042; }
-        .table td { border-bottom: 1px solid #2c3042; }
+        /* Cards & Tables */
+        .card { background-color: #12141c; border: 1px solid #232733; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .card-header { background-color: rgba(255,255,255,0.02); border-bottom: 1px solid #232733; font-weight: 600; letter-spacing: 0.5px; }
+        .table { color: #ccd6f6; font-size: 0.9rem; }
+        .table thead th { background-color: #171a25; color: #8892b0; border-bottom: 2px solid #232733; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+        .table td { border-bottom: 1px solid #232733; vertical-align: middle; }
+        
+        /* Buttons */
+        .btn-primary { background-color: #10b981; border: none; }
+        .btn-primary:hover { background-color: #059669; }
+        .btn-outline-light { border-color: #333; color: #8892b0; }
+        .btn-outline-light:hover { background-color: #232733; color: #fff; border-color: #555; }
     </style>
 </head>
 <body>
 
-    <div class="d-flex" id="wrapper">
+    <div id="wrapper">
         <div id="sidebar-wrapper">
             <div class="sidebar-heading">OneBullEx <span class="text-white">Risk</span></div>
-            <div class="list-group list-group-flush">
-                <a href="/dashboard" class="list-group-item list-group-item-action"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                <a href="/users" class="list-group-item list-group-item-action"><i class="fas fa-users-cog"></i> User Management</a>
-                <div class="mt-3 text-uppercase small text-muted px-4 mb-2">Risk Engine</div>
-                <a href="/risk-rules" class="list-group-item list-group-item-action active"><i class="fas fa-gavel"></i> Risk Rules</a>
+            <div class="list-group list-group-flush mt-3">
+                <a href="/dashboard" class="list-group-item list-group-item-action"><i class="fas fa-home"></i> Overview</a>
+                
+                <div class="mt-4 text-uppercase small text-muted px-4 mb-2" style="font-size:0.7rem;">Core Engine</div>
+                <a href="/risk-rules" class="list-group-item list-group-item-action"><i class="fas fa-gavel"></i> Risk Rules</a>
                 <a href="/risk-features" class="list-group-item list-group-item-action"><i class="fas fa-microchip"></i> Risk Features</a>
-                <div class="mt-3 text-uppercase small text-muted px-4 mb-2">Lists</div>
-                <a href="/blacklist" class="list-group-item list-group-item-action"><i class="fas fa-ban"></i> Black List</a>
+                <a href="/decisions" class="list-group-item list-group-item-action"><i class="fas fa-history"></i> Decision Logs</a>
+                
+                
+                <div class="mt-4 text-uppercase small text-muted px-4 mb-2" style="font-size:0.7rem;">Lists Management</div>
                 <a href="/greylist" class="list-group-item list-group-item-action"><i class="fas fa-filter"></i> Grey List</a>
-                <a href="/whitelist" class="list-group-item list-group-item-action"><i class="fas fa-check-circle"></i> White List</a>
+                <a href="/whitelist/users" class="list-group-item list-group-item-action"><i class="fas fa-user-check"></i> Whitelist (Users)</a>
+                <a href="/whitelist/addresses" class="list-group-item list-group-item-action"><i class="fas fa-wallet"></i> Whitelist (Addr)</a>
+                <a href="/blacklist" class="list-group-item list-group-item-action"><i class="fas fa-ban"></i> Black List</a>
+                <div class="mt-4 text-uppercase small text-muted px-4 mb-2" style="font-size:0.7rem;">Admin</div>
+                <a href="/users" class="list-group-item list-group-item-action"><i class="fas fa-users-cog"></i> Users</a>
             </div>
         </div>
 
         <div id="page-content-wrapper">
             <nav class="navbar navbar-expand-lg navbar-dark">
-                <div class="container-fluid px-0">
-                    <span class="navbar-text text-light" id="page-title">{% block page_title %}{% endblock %}</span>
-                    <div class="ms-auto">
+                <div class="container-fluid">
+                    <button class="btn btn-outline-light btn-sm me-3" id="menu-toggle"><i class="fas fa-bars"></i></button>
+                    
+                    <span class="navbar-text text-light fw-bold" id="page-title">{% block page_title %}Dashboard{% endblock %}</span>
+                    
+                    <div class="ms-auto d-flex align-items-center">
                         <div class="dropdown">
                             <a class="nav-link dropdown-toggle text-light" href="#" role="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-user-circle fa-lg me-1"></i> Admin
+                                <span class="badge bg-success-subtle text-success me-2">Online</span> Admin
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
-                                <li><a class="dropdown-item" href="#">Profile</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="/logout">Logout</a></li>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow">
+                                <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
                             </ul>
                         </div>
                     </div>
                 </div>
             </nav>
 
-            <div class="container-fluid">
+            <div class="container-fluid p-4">
                 {% block content %}{% endblock %}
             </div>
         </div>
@@ -87,6 +107,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Toggle Sidebar Logic
+        $("#menu-toggle").click(function(e) {
+            e.preventDefault();
+            $("#wrapper").toggleClass("toggled");
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

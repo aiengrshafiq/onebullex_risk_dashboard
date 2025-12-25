@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Risk Features{% endblock %}
+{% block page_title %}Risk Features Intelligence{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-transparent border-bottom-0 py-3">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-6">
+                <h5 class="mb-0 text-white">Transaction Features</h5>
+                <small class="text-muted">Real-time signal analysis (Total: {{ total_records }})</small>
+            </div>
+            <div class="col-md-6">
+                <form method="get" class="d-flex">
+                    <input type="text" name="q" class="form-control bg-dark text-white border-secondary me-2" 
+                           placeholder="Search User Code, Txn ID, Address..." value="{{ q }}">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
+                    {% if q %}
+                    <a href="/risk-features" class="btn btn-outline-secondary ms-2" title="Clear Search"><i class="fas fa-times"></i></a>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th class="ps-4">Time / User</th>
+                    <th>Transaction ID</th>
+                    <th>Amount / Chain</th>
+                    <th class="text-center">Risk Score</th>
+                    <th class="text-center">Sanctions</th>
+                    <th class="text-center">Flags</th>
+                    <th class="text-end pe-4">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in features %}
+                <tr>
+                    <td class="ps-4">
+                        <div class="text-white fw-bold">{{ f.user_code }}</div>
+                        <div class="small text-muted">{{ f.update_time.strftime('%Y-%m-%d %H:%M') }}</div>
+                    </td>
+                    <td>
+                        <div class="font-monospace text-info small">{{ f.txn_id }}</div>
+                    </td>
+                    <td>
+                        <div class="text-white">{{ "%.2f"|format(f.withdrawal_amount|float) }} <span class="text-muted small">{{ f.withdrawal_currency }}</span></div>
+                        <div class="badge bg-dark border border-secondary">{{ f.chain }}</div>
+                    </td>
+                    <td class="text-center">
+                        {% if f.session_risk_score > 80 %}
+                            <span class="badge bg-danger">HIGH: {{ f.session_risk_score }}</span>
+                        {% elif f.session_risk_score > 50 %}
+                            <span class="badge bg-warning text-dark">MED: {{ f.session_risk_score }}</span>
+                        {% else %}
+                            <span class="badge bg-success">LOW: {{ f.session_risk_score }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if f.is_sanctioned %}
+                            <span class="badge bg-danger">SANCTIONED</span>
+                        {% else %}
+                            <span class="badge bg-secondary opacity-50">Clean</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if f.is_new_device %}<span class="badge bg-info text-dark me-1" title="New Device">ND</span>{% endif %}
+                        {% if f.is_new_ip %}<span class="badge bg-primary me-1" title="New IP">NI</span>{% endif %}
+                        {% if f.user_blacklisted %}<span class="badge bg-danger me-1" title="Blacklisted User">BL</span>{% endif %}
+                    </td>
+                    <td class="text-end pe-4">
+                        <button class="btn btn-sm btn-outline-light view-details-btn" 
+                                data-user="{{ f.user_code }}" 
+                                data-txn="{{ f.txn_id }}">
+                            <i class="fas fa-eye me-1"></i> View All
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">No records found matching criteria.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card-footer bg-transparent border-top border-secondary py-3">
+        <nav>
+            <ul class="pagination justify-content-end mb-0">
+                <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                    <a class="page-link bg-dark border-secondary text-white" href="?page={{ page-1 }}&q={{ q }}">Previous</a>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link bg-transparent border-0 text-muted">Page {{ page }} of {{ total_pages }}</span>
+                </li>
+                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                    <a class="page-link bg-dark border-secondary text-white" href="?page={{ page+1 }}&q={{ q }}">Next</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content bg-dark border border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Feature Vector Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3" id="loadingSpinner">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+                <table class="table table-sm table-dark table-striped mb-0" id="detailsTable" style="display:none;">
+                    <tbody id="detailsTableBody">
+                        </tbody>
+                </table>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        $(".view-details-btn").click(function() {
+            const user = $(this).data("user");
+            const txn = $(this).data("txn");
+            
+            // Setup Modal
+            $("#detailsModal").modal('show');
+            $("#loadingSpinner").show();
+            $("#detailsTable").hide();
+            $("#detailsTableBody").empty();
+
+            // Fetch Data
+            $.ajax({
+                url: `/risk-features/details?user_code=${encodeURIComponent(user)}&txn_id=${encodeURIComponent(txn)}`,
+                type: "GET",
+                success: function(data) {
+                    let html = "";
+                    // Loop through all keys in the response object
+                    for (const [key, value] of Object.entries(data)) {
+                        // Format nulls nicely
+                        let valDisplay = (value === null) ? '<span class="text-muted">null</span>' : value;
+                        
+                        // Highlight Booleans
+                        if (value === true) valDisplay = '<span class="text-success fw-bold">TRUE</span>';
+                        if (value === false) valDisplay = '<span class="text-secondary">FALSE</span>';
+
+                        html += `
+                            <tr>
+                                <td class="text-secondary w-50" style="word-break: break-all;">${key}</td>
+                                <td class="fw-bold font-monospace text-light" style="word-break: break-all;">${valDisplay}</td>
+                            </tr>
+                        `;
+                    }
+                    $("#detailsTableBody").html(html);
+                    $("#loadingSpinner").hide();
+                    $("#detailsTable").show();
+                },
+                error: function(xhr) {
+                    $("#detailsTableBody").html('<tr><td colspan="2" class="text-danger">Error loading data: ' + xhr.statusText + '</td></tr>');
+                    $("#loadingSpinner").hide();
+                    $("#detailsTable").show();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

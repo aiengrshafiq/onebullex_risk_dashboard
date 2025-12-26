@@ -26,7 +26,6 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
     # --- METRIC CONTAINERS ---
     total_txns = len(logs)
     
-    # Hero Metrics
     metrics = {
         "value_secured": 0.0,
         "pass_count": 0,
@@ -37,15 +36,11 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         "ai_latency_count": 0
     }
     
-    # Chart Data Containers
     threat_counts = Counter()
-    currency_risk = defaultdict(float) # Changed from Chain to Currency
+    currency_risk = defaultdict(float)
     
-    # Time Series Buckets (Hour -> Data)
-    # Structure: "HH:00": { "rule_lat": [], "ai_lat": [], "pass_vol": 0, "block_vol": 0 }
     hourly_stats = defaultdict(lambda: {"rule_lats": [], "ai_lats": [], "pass_vol": 0.0, "block_vol": 0.0})
     
-    # Decision Mix (Source -> Decision -> Count)
     decision_mix = {
         "RULE_ENGINE_RULES": {"PASS": 0, "HOLD": 0, "REJECT": 0},
         "AI_AGENT_REVIEW":   {"PASS": 0, "HOLD": 0, "REJECT": 0}
@@ -53,10 +48,13 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
 
     ai_save_of_day = None
     highest_ai_confidence = 0.0
+    
+    # NEW: Pre-processed list for the frontend table
+    recent_blocks_display = []
 
     # --- PROCESSING LOOP ---
     for log in logs:
-        # A. Parse Snapshot
+        # A. Parse Snapshot (Safe for String OR Dict)
         data = {}
         if log.features_snapshot:
             try:
@@ -68,24 +66,22 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
                 data = {}
 
         amount = float(data.get("withdrawal_amount", 0.0))
-        # Use Currency instead of Chain for better business value
-        currency = data.get("withdraw_currency", "UNKNOWN").upper()
+        # Safe extraction of currency
+        currency = data.get("withdraw_currency", "CRYPTO").upper()
         
-        # Normalize Decision Source Key (Database might vary slightly)
+        # Normalize Decision Source
         source = log.decision_source
         if "RULE" in source: source = "RULE_ENGINE_RULES"
         elif "AI" in source: source = "AI_AGENT_REVIEW"
-        else: source = "RULE_ENGINE_RULES" # Fallback
+        else: source = "RULE_ENGINE_RULES"
 
-        # B. Decision Mix Counters
+        # B. Decision Mix
         decision = log.decision.upper()
         if decision in decision_mix[source]:
             decision_mix[source][decision] += 1
 
-        # C. Latency & Time Series
-        # Group by Hour (e.g., "14:00")
+        # C. Latency
         ts_key = log.decision_timestamp.strftime("%H:00")
-        
         latency = float(log.processing_time_ms or 0)
 
         if source == "RULE_ENGINE_RULES":
@@ -98,7 +94,7 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
             metrics["ai_latency_count"] += 1
             hourly_stats[ts_key]["ai_lats"].append(latency)
 
-        # D. Volume & Threat Logic
+        # D. Volume & Logic
         if decision == "PASS":
             metrics["pass_count"] += 1
             hourly_stats[ts_key]["pass_vol"] += amount
@@ -107,18 +103,27 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
             metrics["value_secured"] += amount
             hourly_stats[ts_key]["block_vol"] += amount
             threat_counts[log.primary_threat or "Unknown"] += 1
-            currency_risk[currency] += amount # Aggregate by Currency
+            currency_risk[currency] += amount
 
-            # E. AI Insight Logic
+            # E. AI Insight
             if source == "AI_AGENT_REVIEW" and decision == "REJECT":
                 conf = float(log.confidence or 0)
                 if conf > highest_ai_confidence:
                     highest_ai_confidence = conf
                     ai_save_of_day = log
+            
+            # F. Populate Recent Blocks Display (Limit 5)
+            if len(recent_blocks_display) < 5:
+                recent_blocks_display.append({
+                    "time_str": log.decision_timestamp.strftime('%H:%M:%S'),
+                    "user_code": log.user_code,
+                    "currency": currency, # Used safe variable
+                    "source_label": "AI Agent" if "AI" in log.decision_source else "Rule Engine",
+                    "primary_threat": log.primary_threat,
+                    "decision": log.decision
+                })
 
     # --- FINAL CALCULATIONS ---
-    
-    # Averages
     avg_rule_lat = int(metrics["rule_latency_sum"] / metrics["rule_latency_count"]) if metrics["rule_latency_count"] else 0
     avg_ai_lat = int(metrics["ai_latency_sum"] / metrics["ai_latency_count"]) if metrics["ai_latency_count"] else 0
     
@@ -126,28 +131,16 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
     if total_txns > 0:
         pass_rate = round((metrics["pass_count"] / total_txns) * 100, 1)
 
-    # Prepare Chart Arrays (Sorted by Time)
     sorted_hours = sorted(hourly_stats.keys())
     
-    # Calculate Avg Latency per hour for the chart
     chart_rule_lat = []
     chart_ai_lat = []
     
     for h in sorted_hours:
         stats = hourly_stats[h]
-        # Avg Rule Latency for this hour
-        if stats["rule_lats"]:
-            chart_rule_lat.append(int(sum(stats["rule_lats"]) / len(stats["rule_lats"])))
-        else:
-            chart_rule_lat.append(0)
-            
-        # Avg AI Latency for this hour
-        if stats["ai_lats"]:
-            chart_ai_lat.append(int(sum(stats["ai_lats"]) / len(stats["ai_lats"])))
-        else:
-            chart_ai_lat.append(0)
+        chart_rule_lat.append(int(sum(stats["rule_lats"]) / len(stats["rule_lats"])) if stats["rule_lats"] else 0)
+        chart_ai_lat.append(int(sum(stats["ai_lats"]) / len(stats["ai_lats"])) if stats["ai_lats"] else 0)
 
-    # KPI Context
     kpi = {
         "secured_usd": f"${metrics['value_secured']:,.2f}",
         "pass_rate": pass_rate,
@@ -155,26 +148,15 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         "avg_ai_lat": f"{avg_ai_lat}ms"
     }
 
-    # Chart Context
     charts = {
-        "threats": {
-            "labels": list(threat_counts.keys()),
-            "data": list(threat_counts.values())
-        },
-        "currencies": { # Renamed from Chains
-            "labels": list(currency_risk.keys()),
-            "data": list(currency_risk.values())
-        },
+        "threats": { "labels": list(threat_counts.keys()), "data": list(threat_counts.values()) },
+        "currencies": { "labels": list(currency_risk.keys()), "data": list(currency_risk.values()) },
         "volume": {
             "labels": sorted_hours,
             "pass": [hourly_stats[h]["pass_vol"] for h in sorted_hours],
             "block": [hourly_stats[h]["block_vol"] for h in sorted_hours]
         },
-        "latency": {
-            "labels": sorted_hours,
-            "rule": chart_rule_lat,
-            "ai": chart_ai_lat
-        },
+        "latency": { "labels": sorted_hours, "rule": chart_rule_lat, "ai": chart_ai_lat },
         "decisions": {
             "rule": [decision_mix["RULE_ENGINE_RULES"]["PASS"], decision_mix["RULE_ENGINE_RULES"]["HOLD"], decision_mix["RULE_ENGINE_RULES"]["REJECT"]],
             "ai": [decision_mix["AI_AGENT_REVIEW"]["PASS"], decision_mix["AI_AGENT_REVIEW"]["HOLD"], decision_mix["AI_AGENT_REVIEW"]["REJECT"]]
@@ -186,5 +168,5 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         "kpi": kpi,
         "charts": charts,
         "ai_insight": ai_save_of_day,
-        "recent_blocks": [l for l in logs if l.decision != 'PASS'][:5]
+        "recent_blocks": recent_blocks_display # Passing the clean list
     })

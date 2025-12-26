@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 
 {% block title %}Phalanx Console{% endblock %}
-{% block page_title %}Executive Risk Overview{% endblock %}
+{% block page_title %}
+    Executive Risk Overview 
+    <span class="badge bg-danger ms-2" style="font-size: 0.6em; vertical-align: middle;">LAST 24 HOURS</span>
+{% endblock %}
 
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -11,7 +14,7 @@
         --neon-green: #00ff9d;
         --neon-red: #ff4d4d;
         --neon-blue: #00d2ff;
-        --neon-orange: #ff9e00;
+        --neon-purple: #a020f0;
         --card-bg: #111;
         --card-border: #333;
     }
@@ -25,63 +28,66 @@
         overflow: hidden;
     }
     
-    .kpi-card::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; width: 4px; height: 100%;
-    }
+    .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
     .kpi-green::before { background-color: var(--neon-green); }
     .kpi-red::before { background-color: var(--neon-red); }
     .kpi-blue::before { background-color: var(--neon-blue); }
-    .kpi-orange::before { background-color: var(--neon-orange); }
+    .kpi-purple::before { background-color: var(--neon-purple); }
 
     .kpi-value { font-size: 1.8rem; font-weight: 700; color: #fff; margin-bottom: 5px; }
-    .kpi-label { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+    .kpi-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #888; }
     
     .chart-container {
         background: var(--card-bg);
         border: 1px solid var(--card-border);
         border-radius: 8px;
         padding: 15px;
-        height: 320px;
+        height: 320px; /* Fixed height for consistency */
     }
     
-    .intel-card {
-        background: #151515;
-        border: 1px solid #444;
-        border-radius: 8px;
-    }
+    .intel-card { background: #151515; border: 1px solid #444; border-radius: 8px; }
     
-    .table-dark-custom {
-        --bs-table-bg: transparent;
-        --bs-table-color: #ccc;
-        --bs-table-border-color: #333;
-    }
+    .table-dark-custom { --bs-table-bg: transparent; --bs-table-color: #ccc; --bs-table-border-color: #333; }
 </style>
 
 <div class="row g-4 mb-4">
     <div class="col-md-3">
         <div class="kpi-card kpi-green">
             <div class="kpi-value">{{ kpi.secured_usd }}</div>
-            <div class="kpi-label"><i class="fas fa-shield-alt me-2"></i>Value Secured (24h)</div>
+            <div class="kpi-label"><i class="fas fa-shield-alt me-2"></i>Value Secured</div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="kpi-card kpi-blue">
             <div class="kpi-value">{{ kpi.pass_rate }}%</div>
-            <div class="kpi-label"><i class="fas fa-bolt me-2"></i>Auto-Pass Velocity</div>
+            <div class="kpi-label"><i class="fas fa-bolt me-2"></i>Global Pass Rate</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="kpi-card kpi-orange">
-            <div class="kpi-value">{{ kpi.avg_latency }}</div>
-            <div class="kpi-label"><i class="fas fa-microchip me-2"></i>Phalanx Latency</div>
+        <div class="kpi-card kpi-purple">
+            <div class="kpi-value">{{ kpi.avg_rule_lat }}</div>
+            <div class="kpi-label"><i class="fas fa-cogs me-2"></i>Rule Latency</div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="kpi-card kpi-red">
-            <div class="kpi-value">{{ kpi.ai_rate }}%</div>
-            <div class="kpi-label"><i class="fas fa-brain me-2"></i>AI Intervention Rate</div>
+            <div class="kpi-value">{{ kpi.avg_ai_lat }}</div>
+            <div class="kpi-label"><i class="fas fa-robot me-2"></i>AI Agent Latency</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="chart-container">
+            <h6 class="text-white mb-3 small text-uppercase">Decision Distribution (Rule vs AI)</h6>
+            <canvas id="decisionMixChart"></canvas>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="chart-container">
+            <h6 class="text-white mb-3 small text-uppercase">Processing Speed Trend (ms)</h6>
+            <canvas id="latencyTrendChart"></canvas>
         </div>
     </div>
 </div>
@@ -89,33 +95,32 @@
 <div class="row g-4 mb-4">
     <div class="col-md-4">
         <div class="chart-container">
-            <h6 class="text-white mb-3 small text-uppercase">Primary Threat Landscape</h6>
-            <canvas id="threatChart"></canvas>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="chart-container">
-            <h6 class="text-white mb-3 small text-uppercase">Flow Volume (Pass vs Block)</h6>
+            <h6 class="text-white mb-3 small text-uppercase">Flow Volume (USD)</h6>
             <canvas id="volumeChart"></canvas>
         </div>
     </div>
-    
     <div class="col-md-4">
         <div class="chart-container">
-            <h6 class="text-white mb-3 small text-uppercase">Blocked Exposure by Chain</h6>
-            <canvas id="chainChart"></canvas>
+            <h6 class="text-white mb-3 small text-uppercase">Primary Threat Types</h6>
+            <canvas id="threatChart"></canvas>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="chart-container">
+            <h6 class="text-white mb-3 small text-uppercase">Blocked Exposure by Currency</h6>
+            <canvas id="currencyChart"></canvas>
         </div>
     </div>
 </div>
 
 <div class="row g-4">
-    
     <div class="col-md-5">
         <div class="intel-card h-100 p-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="text-white mb-0"><i class="fas fa-robot text-info me-2"></i>AI Save of the Day</h5>
-                <span class="badge bg-info text-dark">Confidence: {{ ai_insight.confidence if ai_insight else 'N/A' }}</span>
+                <h5 class="text-white mb-0"><i class="fas fa-brain text-info me-2"></i>AI Insight of the Day</h5>
+                {% if ai_insight %}
+                <span class="badge bg-info text-dark">Confidence: {{ ai_insight.confidence }}</span>
+                {% endif %}
             </div>
             
             {% if ai_insight %}
@@ -134,7 +139,7 @@
             </div>
             {% else %}
             <div class="text-center text-muted py-5">
-                No high-confidence AI rejections recorded today.
+                No high-confidence AI rejections in the last 24 hours.
             </div>
             {% endif %}
         </div>
@@ -152,7 +157,7 @@
                             <tr>
                                 <th class="ps-4">Time</th>
                                 <th>User</th>
-                                <th>Threat</th>
+                                <th>Currency</th>
                                 <th>Source</th>
                                 <th class="text-end pe-4">Decision</th>
                             </tr>
@@ -162,8 +167,20 @@
                             <tr>
                                 <td class="ps-4 small text-muted">{{ log.decision_timestamp.strftime('%H:%M:%S') }}</td>
                                 <td class="fw-bold text-light">{{ log.user_code }}</td>
-                                <td><span class="badge bg-danger bg-opacity-25 text-danger border border-danger">{{ log.primary_threat }}</span></td>
-                                <td class="small">{{ log.decision_source }}</td>
+                                <td class="text-info small">
+                                    {% if log.features_snapshot and 'withdraw_currency' in log.features_snapshot %}
+                                        {{ log.features_snapshot.split('"withdraw_currency": "')[1].split('"')[0].upper() }}
+                                    {% else %}
+                                        CRYPTO
+                                    {% endif %}
+                                </td>
+                                <td class="small">
+                                    {% if 'AI' in log.decision_source %}
+                                    <span class="text-info">AI Agent</span>
+                                    {% else %}
+                                    <span class="text-light">Rule Engine</span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-end pe-4">
                                     <span class="badge bg-danger">REJECT</span>
                                 </td>
@@ -181,34 +198,66 @@
 
 {% block scripts %}
 <script>
-    // --- CHART CONFIGURATION ---
-    Chart.defaults.color = '#666';
+    Chart.defaults.color = '#777';
     Chart.defaults.borderColor = '#333';
 
-    // 1. THREAT LANDSCAPE (DONUT)
-    const ctxThreat = document.getElementById('threatChart').getContext('2d');
-    new Chart(ctxThreat, {
-        type: 'doughnut',
+    // 1. DECISION MIX CHART (Bar Comparison)
+    new Chart(document.getElementById('decisionMixChart'), {
+        type: 'bar',
         data: {
-            labels: {{ charts.threats.labels | tojson }},
-            datasets: [{
-                data: {{ charts.threats.data | tojson }},
-                backgroundColor: ['#ff4d4d', '#ff9e00', '#00d2ff', '#a020f0', '#00ff9d'],
-                borderWidth: 0
-            }]
+            labels: ['PASS', 'HOLD', 'REJECT'],
+            datasets: [
+                {
+                    label: 'Rule Engine',
+                    data: {{ charts.decisions.rule | tojson }},
+                    backgroundColor: '#a020f0', // Purple
+                    borderRadius: 4
+                },
+                {
+                    label: 'AI Agent',
+                    data: {{ charts.decisions.ai | tojson }},
+                    backgroundColor: '#00d2ff', // Blue
+                    borderRadius: 4
+                }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'right', labels: { color: '#ccc', usePointStyle: true } }
-            }
+            scales: { y: { beginAtZero: true } }
         }
     });
 
-    // 2. VOLUME FLOW (STACKED BAR)
-    const ctxVol = document.getElementById('volumeChart').getContext('2d');
-    new Chart(ctxVol, {
+    // 2. LATENCY TREND CHART (Line)
+    new Chart(document.getElementById('latencyTrendChart'), {
+        type: 'line',
+        data: {
+            labels: {{ charts.latency.labels | tojson }},
+            datasets: [
+                {
+                    label: 'Rule Latency',
+                    data: {{ charts.latency.rule | tojson }},
+                    borderColor: '#a020f0',
+                    tension: 0.4
+                },
+                {
+                    label: 'AI Latency',
+                    data: {{ charts.latency.ai | tojson }},
+                    borderColor: '#ff4d4d', // Red for AI usually slower
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            elements: { point: { radius: 0 } }, // Hide points for cleaner line
+            plugins: { tooltip: { mode: 'index', intersect: false } }
+        }
+    });
+
+    // 3. VOLUME CHART
+    new Chart(document.getElementById('volumeChart'), {
         type: 'bar',
         data: {
             labels: {{ charts.volume.labels | tojson }},
@@ -216,49 +265,56 @@
                 {
                     label: 'Blocked ($)',
                     data: {{ charts.volume.block | tojson }},
-                    backgroundColor: '#ff4d4d',
-                    barThickness: 8
+                    backgroundColor: '#ff4d4d'
                 },
                 {
                     label: 'Passed ($)',
                     data: {{ charts.volume.pass | tojson }},
-                    backgroundColor: '#28a745',
-                    barThickness: 8
+                    backgroundColor: '#00ff9d'
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            scales: {
-                x: { stacked: true, grid: { display: false } },
-                y: { stacked: true, grid: { color: '#222' } }
-            },
-            plugins: { legend: { display: false } }
+            scales: { x: { stacked: true }, y: { stacked: true } }
         }
     });
 
-    // 3. CHAIN RISK (HORIZONTAL BAR)
-    const ctxChain = document.getElementById('chainChart').getContext('2d');
-    new Chart(ctxChain, {
-        type: 'bar',
-        indexAxis: 'y',
+    // 4. THREATS (Donut)
+    new Chart(document.getElementById('threatChart'), {
+        type: 'doughnut',
         data: {
-            labels: {{ charts.chains.labels | tojson }},
+            labels: {{ charts.threats.labels | tojson }},
             datasets: [{
-                label: 'Risk Volume ($)',
-                data: {{ charts.chains.data | tojson }},
-                backgroundColor: '#00d2ff',
-                barThickness: 15
+                data: {{ charts.threats.data | tojson }},
+                backgroundColor: ['#ff4d4d', '#ff9e00', '#00d2ff', '#a020f0', '#ffffff'],
+                borderWidth: 0
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            scales: {
-                x: { grid: { color: '#222' } },
-                y: { grid: { display: false } }
-            },
+            plugins: { legend: { position: 'right' } }
+        }
+    });
+
+    // 5. CURRENCY EXPOSURE (Horizontal Bar)
+    new Chart(document.getElementById('currencyChart'), {
+        type: 'bar',
+        indexAxis: 'y',
+        data: {
+            labels: {{ charts.currencies.labels | tojson }},
+            datasets: [{
+                label: 'Risk Volume ($)',
+                data: {{ charts.currencies.data | tojson }},
+                backgroundColor: '#ff9e00', // Orange for Crypto/Bitcoin vibe
+                barThickness: 20
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
             plugins: { legend: { display: false } }
         }
     });

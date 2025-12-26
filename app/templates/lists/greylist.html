@@ -3,6 +3,17 @@
 {% block page_title %}Greylist Management{% endblock %}
 
 {% block content %}
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
+    <div id="liveToast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage">
+                Action successful.
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center py-3 bg-transparent border-bottom-0">
         <h5 class="mb-0 text-white">Greylisted Entities</h5>
@@ -64,10 +75,10 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="addGreylistForm">
+                <form id="addGreylistForm" novalidate>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Entity Type</label>
-                        <select class="form-select bg-black text-white border-secondary" id="entity_type">
+                        <label class="form-label text-secondary">Entity Type <span class="text-danger">*</span></label>
+                        <select class="form-select bg-black text-white border-secondary" id="entity_type" required>
                             <option value="USER_CODE">User Code</option>
                             <option value="IP_ADDRESS">IP Address</option>
                             <option value="DEVICE_FINGERPRINT">Device Fingerprint</option>
@@ -76,12 +87,14 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Entity Value</label>
+                        <label class="form-label text-secondary">Entity Value <span class="text-danger">*</span></label>
                         <input type="text" class="form-control bg-black text-white border-secondary" id="entity_value" placeholder="e.g. 192.168.1.1" required>
+                        <div class="invalid-feedback">Entity Value is required.</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Reason</label>
+                        <label class="form-label text-secondary">Reason <span class="text-danger">*</span></label>
                         <textarea class="form-control bg-black text-white border-secondary" id="reason" rows="2" required></textarea>
+                        <div class="invalid-feedback">Reason is required.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label text-secondary">Expires At (Optional)</label>
@@ -90,11 +103,13 @@
                 </form>
             </div>
             <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="saveGreylistBtn">Save</button>
             </div>
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="editGreylistModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content bg-dark border border-secondary text-white">
@@ -103,7 +118,7 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form>
+                <form id="editGreylistForm" novalidate>
                     <input type="hidden" id="edit_val">
                     <input type="hidden" id="edit_type">
                     
@@ -112,18 +127,19 @@
                         <div class="fw-bold text-white" id="edit_display_title"></div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Reason</label>
-                        <textarea class="form-control bg-black text-white border-secondary" id="edit_reason" rows="2"></textarea>
+                        <label class="form-label text-secondary">Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control bg-black text-white border-secondary" id="edit_reason" rows="2" required></textarea>
+                        <div class="invalid-feedback">Reason is required.</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Status</label>
-                        <select class="form-select bg-black text-white border-secondary" id="edit_status">
+                        <label class="form-label text-secondary">Status <span class="text-danger">*</span></label>
+                        <select class="form-select bg-black text-white border-secondary" id="edit_status" required>
                             <option value="ACTIVE">ACTIVE</option>
                             <option value="INACTIVE">INACTIVE</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Expires At</label>
+                        <label class="form-label text-secondary">Expires At (Optional)</label>
                         <input type="date" class="form-control bg-black text-white border-secondary" id="edit_expires">
                     </div>
                 </form>
@@ -138,79 +154,137 @@
 
 {% block scripts %}
 <script>
-    $("#saveGreylistBtn").click(function() {
-        const payload = {
-            entity_type: $("#entity_type").val(),
-            entity_value: $("#entity_value").val(),
-            reason: $("#reason").val(),
-            expires_at: $("#expires_at").val() ? new Date($("#expires_at").val()).toISOString() : null,
-            status: "ACTIVE"
-        };
+    // --- Helper: Show Toast Notification ---
+    function showToast(message, type = 'success') {
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = document.getElementById('toastMessage');
+        
+        toastEl.classList.remove('bg-success', 'bg-danger', 'bg-primary');
+        if(type === 'success') toastEl.classList.add('bg-success');
+        else if(type === 'error') toastEl.classList.add('bg-danger');
+        else toastEl.classList.add('bg-primary');
 
-        $.ajax({
-            url: "/greylist/add",
-            type: "POST",
-            contentType: "application/json",
-            data: JSON.stringify(payload),
-            success: function() { location.reload(); },
-            error: function(xhr) { alert("Error: " + xhr.responseText); }
-        });
-    });
-    // --- EDIT ---
-    $(".edit-btn").click(function() {
-        const val = $(this).data("val");
-        const type = $(this).data("type");
-        
-        $("#edit_val").val(val);
-        $("#edit_type").val(type);
-        $("#edit_display_title").text(type + ": " + val);
-        $("#edit_reason").val($(this).data("reason"));
-        $("#edit_status").val($(this).data("status"));
-        
-        // Handle Date format for input
-        let dateStr = $(this).data("expires");
-        if(dateStr && dateStr != "None") {
-            $("#edit_expires").val(dateStr.split('T')[0]); 
-        } else {
-            $("#edit_expires").val("");
+        toastBody.textContent = message;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
+
+    // --- Helper: Validate Form ---
+    function validateForm(formId) {
+        const form = document.getElementById(formId);
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return false;
         }
+        return true;
+    }
 
-        $('#editGreylistModal').modal('show');
-    });
-
-    $("#updateGreylistBtn").click(function() {
-        const payload = {
-            entity_value: $("#edit_val").val(),
-            entity_type: $("#edit_type").val(),
-            reason: $("#edit_reason").val(),
-            status: $("#edit_status").val(),
-            expires_at: $("#edit_expires").val() ? new Date($("#edit_expires").val()).toISOString() : null
-        };
-
-        $.ajax({
-            url: "/greylist/update",
-            type: "PUT",
-            contentType: "application/json",
-            data: JSON.stringify(payload),
-            success: function() { location.reload(); },
-            error: function(xhr) { alert("Error: " + xhr.responseText); }
-        });
-    });
-
-    // --- DELETE ---
-    $(".delete-btn").click(function() {
-        if(!confirm("Are you sure you want to remove this item from the Greylist?")) return;
+    $(document).ready(function() {
         
-        const val = $(this).data("val");
-        const type = $(this).data("type");
-        
-        // Send params in query string
-        $.ajax({
-            url: `/greylist/delete?entity_value=${encodeURIComponent(val)}&entity_type=${encodeURIComponent(type)}`,
-            type: "DELETE",
-            success: function() { location.reload(); },
-            error: function(xhr) { alert("Error: " + xhr.responseText); }
+        // --- ADD NEW ---
+        $("#saveGreylistBtn").click(function() {
+            if (!validateForm('addGreylistForm')) {
+                showToast("Please fill in all required fields.", "error");
+                return;
+            }
+
+            const payload = {
+                entity_type: $("#entity_type").val(),
+                entity_value: $("#entity_value").val(),
+                reason: $("#reason").val(),
+                expires_at: $("#expires_at").val() ? new Date($("#expires_at").val()).toISOString() : null,
+                status: "ACTIVE"
+            };
+
+            $.ajax({
+                url: "/greylist/add",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify(payload),
+                success: function() { 
+                    $('#addGreylistModal').modal('hide');
+                    showToast("Entry added successfully!", "success");
+                    setTimeout(() => location.reload(), 1000);
+                },
+                error: function(xhr) { 
+                    showToast("Error adding entry: " + xhr.responseText, "error");
+                }
+            });
         });
+
+        // --- EDIT PREP ---
+        $(".edit-btn").click(function() {
+            const val = $(this).data("val");
+            const type = $(this).data("type");
+            
+            $("#edit_val").val(val);
+            $("#edit_type").val(type);
+            $("#edit_display_title").text(type + ": " + val);
+            $("#edit_reason").val($(this).data("reason"));
+            $("#edit_status").val($(this).data("status"));
+            
+            let dateStr = $(this).data("expires");
+            if(dateStr && dateStr != "None") {
+                $("#edit_expires").val(dateStr.split('T')[0]); 
+            } else {
+                $("#edit_expires").val("");
+            }
+
+            $("#editGreylistForm").removeClass('was-validated'); // Clear validation
+            $('#editGreylistModal').modal('show');
+        });
+
+        // --- UPDATE ---
+        $("#updateGreylistBtn").click(function() {
+            if (!validateForm('editGreylistForm')) {
+                showToast("Please fill in all required fields.", "error");
+                return;
+            }
+
+            const payload = {
+                entity_value: $("#edit_val").val(),
+                entity_type: $("#edit_type").val(),
+                reason: $("#edit_reason").val(),
+                status: $("#edit_status").val(),
+                expires_at: $("#edit_expires").val() ? new Date($("#edit_expires").val()).toISOString() : null
+            };
+
+            $.ajax({
+                url: "/greylist/update",
+                type: "PUT",
+                contentType: "application/json",
+                data: JSON.stringify(payload),
+                success: function() { 
+                    $('#editGreylistModal').modal('hide');
+                    showToast("Entry updated successfully!", "success");
+                    setTimeout(() => location.reload(), 1000);
+                },
+                error: function(xhr) { 
+                    showToast("Error updating entry: " + xhr.responseText, "error");
+                }
+            });
+        });
+
+        // --- DELETE ---
+        $(".delete-btn").click(function() {
+            if(!confirm("Are you sure you want to remove this item from the Greylist?")) return;
+            
+            const val = $(this).data("val");
+            const type = $(this).data("type");
+            
+            $.ajax({
+                url: `/greylist/delete?entity_value=${encodeURIComponent(val)}&entity_type=${encodeURIComponent(type)}`,
+                type: "DELETE",
+                success: function() { 
+                    showToast("Entry deleted successfully.", "success");
+                    setTimeout(() => location.reload(), 1000);
+                },
+                error: function(xhr) { 
+                    showToast("Error deleting entry: " + xhr.responseText, "error");
+                }
+            });
+        });
+
     });
 </script>
 {% endblock %}

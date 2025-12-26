@@ -39,7 +39,8 @@ async def add_bl_user(item: BlacklistUserCreate, db: AsyncSession = Depends(get_
     await db.commit()
     return {"status": "success"}
 
-@router.put("/blacklist/user/{user_code}")
+# FIX: Added :path to capture full ID string
+@router.put("/blacklist/user/{user_code:path}")
 async def update_bl_user(user_code: str, item: BlacklistUserCreate, db: AsyncSession = Depends(get_db)):
     entry = await db.get(RiskBlacklistUser, user_code)
     if not entry: raise HTTPException(404, "Not found")
@@ -49,7 +50,8 @@ async def update_bl_user(user_code: str, item: BlacklistUserCreate, db: AsyncSes
     await db.commit()
     return {"status": "success"}
 
-@router.delete("/blacklist/user/{user_code}")
+# FIX: Added :path to capture full ID string
+@router.delete("/blacklist/user/{user_code:path}")
 async def delete_bl_user(user_code: str, db: AsyncSession = Depends(get_db)):
     entry = await db.get(RiskBlacklistUser, user_code)
     if not entry: raise HTTPException(404, "Not found")
@@ -66,7 +68,8 @@ async def add_bl_ip(item: BlacklistIPCreate, db: AsyncSession = Depends(get_db))
     await db.commit()
     return {"status": "success"}
 
-@router.put("/blacklist/ip/{ip_address}")
+# FIX: Added :path
+@router.put("/blacklist/ip/{ip_address:path}")
 async def update_bl_ip(ip_address: str, item: BlacklistIPCreate, db: AsyncSession = Depends(get_db)):
     entry = await db.get(RiskBlacklistIP, ip_address)
     if not entry: raise HTTPException(404, "Not found")
@@ -76,7 +79,8 @@ async def update_bl_ip(ip_address: str, item: BlacklistIPCreate, db: AsyncSessio
     await db.commit()
     return {"status": "success"}
 
-@router.delete("/blacklist/ip/{ip_address}")
+# FIX: Added :path
+@router.delete("/blacklist/ip/{ip_address:path}")
 async def delete_bl_ip(ip_address: str, db: AsyncSession = Depends(get_db)):
     entry = await db.get(RiskBlacklistIP, ip_address)
     if not entry: raise HTTPException(404, "Not found")
@@ -93,7 +97,8 @@ async def add_bl_domain(item: BlacklistDomainCreate, db: AsyncSession = Depends(
     await db.commit()
     return {"status": "success"}
 
-@router.put("/blacklist/domain/{domain}")
+# FIX: Added :path
+@router.put("/blacklist/domain/{domain:path}")
 async def update_bl_domain(domain: str, item: BlacklistDomainCreate, db: AsyncSession = Depends(get_db)):
     entry = await db.get(RiskBlacklistEmailDomain, domain)
     if not entry: raise HTTPException(404, "Not found")
@@ -103,7 +108,8 @@ async def update_bl_domain(domain: str, item: BlacklistDomainCreate, db: AsyncSe
     await db.commit()
     return {"status": "success"}
 
-@router.delete("/blacklist/domain/{domain}")
+# FIX: Added :path
+@router.delete("/blacklist/domain/{domain:path}")
 async def delete_bl_domain(domain: str, db: AsyncSession = Depends(get_db)):
     entry = await db.get(RiskBlacklistEmailDomain, domain)
     if not entry: raise HTTPException(404, "Not found")
@@ -120,7 +126,8 @@ async def add_bl_address(item: BlacklistAddressCreate, db: AsyncSession = Depend
     await db.commit()
     return {"status": "success"}
 
-@router.put("/blacklist/address/{address}")
+# FIX: Added :path
+@router.put("/blacklist/address/{address:path}")
 async def update_bl_address(address: str, item: BlacklistAddressCreate, db: AsyncSession = Depends(get_db)):
     entry = await db.get(RiskBlacklistAddress, address)
     if not entry: raise HTTPException(404, "Not found")
@@ -131,7 +138,8 @@ async def update_bl_address(address: str, item: BlacklistAddressCreate, db: Asyn
     await db.commit()
     return {"status": "success"}
 
-@router.delete("/blacklist/address/{address}")
+# FIX: Added :path
+@router.delete("/blacklist/address/{address:path}")
 async def delete_bl_address(address: str, db: AsyncSession = Depends(get_db)):
     entry = await db.get(RiskBlacklistAddress, address)
     if not entry: raise HTTPException(404, "Not found")

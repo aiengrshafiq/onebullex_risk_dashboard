@@ -6,9 +6,45 @@ from app.core.database import get_db
 from app.models.risk_tables import RiskRule
 from app.schemas.risk import RiskRuleCreate
 from sqlalchemy import func
+import ast
+
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+
+# --- 1. Helper: AST Validator (Derived from your provided code) ---
+_ALLOWED_NODES = (
+    ast.Expression, ast.BoolOp, ast.UnaryOp, ast.BinOp, ast.Compare,
+    ast.Name, ast.Load, ast.Constant, ast.And, ast.Or, ast.Not,
+    ast.UAdd, ast.USub, ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod,
+    ast.Eq, ast.NotEq, ast.Gt, ast.GtE, ast.Lt, ast.LtE,
+)
+
+def validate_logic_expression(expr: str):
+    """
+    Parses string to AST and checks if it is a safe, valid Python expression.
+    Returns (True, None) or (False, error_message).
+    """
+    expr = (expr or "").replace("\n", " ").strip()
+    if not expr:
+        return False, "Expression cannot be empty."
+    
+    try:
+        # 1. Check Syntax
+        tree = ast.parse(expr, mode="eval")
+        
+        # 2. Check Security/Allowed Nodes
+        for n in ast.walk(tree):
+            if not isinstance(n, _ALLOWED_NODES):
+                return False, f"Security Block: Disallowed logic element '{type(n).__name__}'"
+                
+        return True, None
+    except SyntaxError as e:
+        return False, f"Syntax Error: {e.msg} at offset {e.offset}"
+    except Exception as e:
+        return False, str(e)
+
 
 @router.get("/risk-rules")
 async def view_risk_rules(request: Request, db: AsyncSession = Depends(get_db)):
@@ -25,6 +61,10 @@ async def view_risk_rules(request: Request, db: AsyncSession = Depends(get_db)):
 @router.post("/risk-rules/add")
 async def create_risk_rule(rule: RiskRuleCreate, db: AsyncSession = Depends(get_db)):
     try:
+        # Validate Logic
+        is_valid, error_msg = validate_logic_expression(rule.logic_expression)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=f"Invalid Logic Expression: {error_msg}")
         # 1. Get the current maximum rule_id
         # We use coalesce to handle the case where the table is empty (returns 0)
         query = select(func.max(RiskRule.rule_id))
@@ -58,7 +98,14 @@ async def update_risk_rule(
     rule_id: int, 
     rule_update: RiskRuleCreate, 
     db: AsyncSession = Depends(get_db)
-):
+):  
+
+     # Validate Logic
+    is_valid, error_msg = validate_logic_expression(rule_update.logic_expression)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=f"Invalid Logic Expression: {error_msg}")
+        
+   
     # 1. Fetch existing rule
     result = await db.execute(select(RiskRule).where(RiskRule.rule_id == rule_id))
     existing_rule = result.scalars().first()

@@ -4,7 +4,7 @@ from fastapi.responses import RedirectResponse
 from app.routers import auth, risk_rules, lists, blacklist, features, decisions
 # We will import dashboard router later
 
-app = FastAPI(title="OneBullEx Risk Manager")
+app = FastAPI(title="Phalanx Console")
 
 # Mount Static Files (CSS/JS)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

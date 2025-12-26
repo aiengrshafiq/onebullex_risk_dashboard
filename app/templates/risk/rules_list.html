@@ -4,6 +4,17 @@
 {% block page_title %}Risk Rules Management{% endblock %}
 
 {% block content %}
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
+    <div id="liveToast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage">
+                Action successful.
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center py-3 bg-transparent border-bottom-0">
         <h5 class="mb-0 text-white">Active Rules Engine</h5>
@@ -85,38 +96,42 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="addRuleForm">
+                <form id="addRuleForm" novalidate>
                     <div class="row g-3">
                         <div class="col-md-8">
-                            <label class="form-label text-secondary">Rule Name</label>
+                            <label class="form-label text-secondary">Rule Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control bg-black text-white border-secondary" id="rule_name" required placeholder="e.g. Large Withdrawal New IP">
+                            <div class="invalid-feedback">Rule Name is required.</div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label text-secondary">Priority</label>
-                            <input type="number" class="form-control bg-black text-white border-secondary" id="priority" value="10">
+                            <label class="form-label text-secondary">Priority <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control bg-black text-white border-secondary" id="priority" value="10" required>
                         </div>
                         <div class="col-12">
-                            <label class="form-label text-secondary">Logic Expression (Python Syntax)</label>
-                            <textarea class="form-control bg-black text-info border-secondary" id="logic_expression" rows="2" style="font-family: monospace;" required placeholder="(amount > 5000) and (kyc_level < 2)"></textarea>
+                            <label class="form-label text-secondary">Logic Expression (Python Syntax) <span class="text-danger">*</span></label>
+                            <textarea class="form-control bg-black text-info border-secondary font-monospace" id="logic_expression" rows="2" required placeholder="(amount > 5000) and (kyc_level < 2)"></textarea>
+                            <div class="invalid-feedback">Valid Python logic expression is required.</div>
+                            <div class="form-text text-muted small">Only basic operators and math/logic comparisons are allowed.</div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-secondary">Action</label>
-                            <select class="form-select bg-black text-white border-secondary" id="action">
+                            <label class="form-label text-secondary">Action <span class="text-danger">*</span></label>
+                            <select class="form-select bg-black text-white border-secondary" id="action" required>
                                 <option value="HOLD">HOLD</option>
                                 <option value="PASS">PASS</option>
                                 <option value="REJECT">REJECT</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-secondary">Status</label>
-                            <select class="form-select bg-black text-white border-secondary" id="status">
+                            <label class="form-label text-secondary">Status <span class="text-danger">*</span></label>
+                            <select class="form-select bg-black text-white border-secondary" id="status" required>
                                 <option value="ACTIVE">ACTIVE</option>
                                 <option value="INACTIVE">INACTIVE</option>
                             </select>
                         </div>
                         <div class="col-12">
-                            <label class="form-label text-secondary">Narrative / Description</label>
+                            <label class="form-label text-secondary">Narrative / Description <span class="text-danger">*</span></label>
                             <input type="text" class="form-control bg-black text-white border-secondary" id="narrative" required placeholder="Explanation for analysts...">
+                            <div class="invalid-feedback">Description is required.</div>
                         </div>
                     </div>
                 </form>
@@ -128,6 +143,7 @@
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="editRuleModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content bg-dark border border-secondary text-white">
@@ -136,40 +152,43 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="editRuleForm">
+                <form id="editRuleForm" novalidate>
                     <input type="hidden" id="edit_rule_id">
                     
                     <div class="row g-3">
                         <div class="col-md-8">
-                            <label class="form-label text-secondary">Rule Name</label>
+                            <label class="form-label text-secondary">Rule Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control bg-black text-white border-secondary" id="edit_rule_name" required>
+                            <div class="invalid-feedback">Rule Name is required.</div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label text-secondary">Priority</label>
-                            <input type="number" class="form-control bg-black text-white border-secondary" id="edit_priority">
+                            <label class="form-label text-secondary">Priority <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control bg-black text-white border-secondary" id="edit_priority" required>
                         </div>
                         <div class="col-12">
-                            <label class="form-label text-secondary">Logic Expression</label>
-                            <textarea class="form-control bg-black text-info border-secondary" id="edit_logic_expression" rows="2" style="font-family: monospace;" required></textarea>
+                            <label class="form-label text-secondary">Logic Expression <span class="text-danger">*</span></label>
+                            <textarea class="form-control bg-black text-info border-secondary font-monospace" id="edit_logic_expression" rows="2" required></textarea>
+                            <div class="invalid-feedback">Valid logic expression is required.</div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-secondary">Action</label>
-                            <select class="form-select bg-black text-white border-secondary" id="edit_action">
+                            <label class="form-label text-secondary">Action <span class="text-danger">*</span></label>
+                            <select class="form-select bg-black text-white border-secondary" id="edit_action" required>
                                 <option value="HOLD">HOLD</option>
                                 <option value="PASS">PASS</option>
                                 <option value="REJECT">REJECT</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-secondary">Status</label>
-                            <select class="form-select bg-black text-white border-secondary" id="edit_status">
+                            <label class="form-label text-secondary">Status <span class="text-danger">*</span></label>
+                            <select class="form-select bg-black text-white border-secondary" id="edit_status" required>
                                 <option value="ACTIVE">ACTIVE</option>
                                 <option value="INACTIVE">INACTIVE</option>
                             </select>
                         </div>
                         <div class="col-12">
-                            <label class="form-label text-secondary">Narrative</label>
+                            <label class="form-label text-secondary">Narrative <span class="text-danger">*</span></label>
                             <input type="text" class="form-control bg-black text-white border-secondary" id="edit_narrative" required>
+                             <div class="invalid-feedback">Description is required.</div>
                         </div>
                     </div>
                 </form>
@@ -181,6 +200,7 @@
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="viewRuleModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content bg-dark border border-secondary text-white">
@@ -210,69 +230,67 @@
 
 {% block scripts %}
 <script>
-    $(document).ready(function() {
-        // Open View Modal
-    $(".view-rule-btn").click(function() {
-        $("#view_rule_name").text($(this).data("name"));
-        $("#view_logic").text($(this).data("logic"));
-        $("#view_narrative").text($(this).data("narrative"));
-        $('#viewRuleModal').modal('show');
-    });
-        // 1. Open Edit Modal and Populate Data
-    $(".edit-rule-btn").click(function() {
-        // Get data from button attributes
-        const id = $(this).data("id");
-        const name = $(this).data("name");
-        const logic = $(this).data("logic");
-        const action = $(this).data("action");
-        const narrative = $(this).data("narrative");
-        const priority = $(this).data("priority");
-        const status = $(this).data("status");
-
-        // Populate Modal Fields
-        $("#edit_rule_id").val(id);
-        $("#edit_rule_id_display").text("#" + id);
-        $("#edit_rule_name").val(name);
-        $("#edit_logic_expression").val(logic);
-        $("#edit_action").val(action);
-        $("#edit_narrative").val(narrative);
-        $("#edit_priority").val(priority);
-        $("#edit_status").val(status);
-
-        // Show Modal
-        $('#editRuleModal').modal('show');
-    });
-
-    // 2. Submit Update
-    $("#updateRuleBtn").click(function() {
-        const id = $("#edit_rule_id").val();
+    // --- Helper: Show Toast Notification ---
+    function showToast(message, type = 'success') {
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = document.getElementById('toastMessage');
         
-        const payload = {
-            rule_name: $("#edit_rule_name").val(),
-            logic_expression: $("#edit_logic_expression").val(),
-            action: $("#edit_action").val(),
-            narrative: $("#edit_narrative").val(),
-            priority: parseInt($("#edit_priority").val()),
-            status: $("#edit_status").val()
-        };
+        // Remove old classes
+        toastEl.classList.remove('bg-success', 'bg-danger', 'bg-primary');
+        
+        // Add new class based on type
+        if(type === 'success') toastEl.classList.add('bg-success');
+        else if(type === 'error') toastEl.classList.add('bg-danger');
+        else toastEl.classList.add('bg-primary');
 
-        $.ajax({
-            url: "/risk-rules/" + id,
-            type: "PUT",
-            contentType: "application/json",
-            data: JSON.stringify(payload),
-            success: function(response) {
-                $('#editRuleModal').modal('hide');
-                location.reload();
-            },
-            error: function(xhr) {
-                alert("Error updating rule: " + xhr.responseText);
-            }
+        toastBody.textContent = message;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
+
+    // --- Helper: Validate Form Inputs (Client Side) ---
+    function validateForm(formId) {
+        const form = document.getElementById(formId);
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return false;
+        }
+        return true;
+    }
+
+    $(document).ready(function() {
+        // --- 1. View Modal ---
+        $(".view-rule-btn").click(function() {
+            $("#view_rule_name").text($(this).data("name"));
+            $("#view_logic").text($(this).data("logic"));
+            $("#view_narrative").text($(this).data("narrative"));
+            $('#viewRuleModal').modal('show');
         });
-    });
-    
+
+        // --- 2. Edit Modal Populate ---
+        $(".edit-rule-btn").click(function() {
+            const btn = $(this);
+            $("#edit_rule_id").val(btn.data("id"));
+            $("#edit_rule_id_display").text("#" + btn.data("id"));
+            $("#edit_rule_name").val(btn.data("name"));
+            $("#edit_logic_expression").val(btn.data("logic"));
+            $("#edit_action").val(btn.data("action"));
+            $("#edit_narrative").val(btn.data("narrative"));
+            $("#edit_priority").val(btn.data("priority"));
+            $("#edit_status").val(btn.data("status"));
+
+            // Reset validation state
+            $("#editRuleForm").removeClass('was-validated');
+            $('#editRuleModal').modal('show');
+        });
+
+        // --- 3. Save New Rule (POST) ---
         $("#saveRuleBtn").click(function() {
-            // 1. Gather Data
+            if(!validateForm('addRuleForm')) {
+                showToast("Please fill in all mandatory fields.", "error");
+                return;
+            }
+
             const payload = {
                 rule_name: $("#rule_name").val(),
                 logic_expression: $("#logic_expression").val(),
@@ -282,25 +300,60 @@
                 status: $("#status").val()
             };
 
-            // 2. Validate (Simple check)
-            if(!payload.rule_name || !payload.logic_expression) {
-                alert("Please fill in required fields.");
-                return;
-            }
-
-            // 3. Send AJAX Request
             $.ajax({
                 url: "/risk-rules/add",
                 type: "POST",
                 contentType: "application/json",
                 data: JSON.stringify(payload),
                 success: function(response) {
-                    // Close modal and reload page to show new data
                     $('#addRuleModal').modal('hide');
-                    location.reload(); 
+                    showToast("Rule created successfully!", "success");
+                    setTimeout(() => location.reload(), 1000); // Wait 1s so user sees toast
                 },
                 error: function(xhr) {
-                    alert("Error saving rule: " + xhr.responseText);
+                    // Extract detail from FastAPI JSON error
+                    let msg = "Error saving rule.";
+                    if(xhr.responseJSON && xhr.responseJSON.detail) {
+                        msg = xhr.responseJSON.detail;
+                    }
+                    showToast(msg, "error");
+                }
+            });
+        });
+
+        // --- 4. Update Rule (PUT) ---
+        $("#updateRuleBtn").click(function() {
+            if(!validateForm('editRuleForm')) {
+                showToast("Please fill in all mandatory fields.", "error");
+                return;
+            }
+
+            const id = $("#edit_rule_id").val();
+            const payload = {
+                rule_name: $("#edit_rule_name").val(),
+                logic_expression: $("#edit_logic_expression").val(),
+                action: $("#edit_action").val(),
+                narrative: $("#edit_narrative").val(),
+                priority: parseInt($("#edit_priority").val()),
+                status: $("#edit_status").val()
+            };
+
+            $.ajax({
+                url: "/risk-rules/" + id,
+                type: "PUT",
+                contentType: "application/json",
+                data: JSON.stringify(payload),
+                success: function(response) {
+                    $('#editRuleModal').modal('hide');
+                    showToast("Rule updated successfully!", "success");
+                    setTimeout(() => location.reload(), 1000);
+                },
+                error: function(xhr) {
+                    let msg = "Error updating rule.";
+                    if(xhr.responseJSON && xhr.responseJSON.detail) {
+                        msg = xhr.responseJSON.detail;
+                    }
+                    showToast(msg, "error");
                 }
             });
         });

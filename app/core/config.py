@@ -24,7 +24,7 @@ class Settings:
     DATABASE_URL: str = f"postgresql+asyncpg://{DB_USER_ENC}:{DB_PASS_ENC}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
     # Debug print (Optional: Check logs to see %40 instead of @)
-    print(f"DEBUG: Final URL: {DATABASE_URL}")
+    #print(f"DEBUG: Final URL: {DATABASE_URL}")
 
     SECRET_KEY: str = os.getenv("SECRET_KEY")
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")

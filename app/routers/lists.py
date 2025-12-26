@@ -86,7 +86,8 @@ async def add_greylist(item: GreylistCreate, db: AsyncSession = Depends(get_db))
 # ==========================================
 # 1. USER WHITELIST - UPDATE & DELETE
 # ==========================================
-@router.put("/whitelist/users/{user_code}")
+# FIX: Added :path to capture full string ID properly
+@router.put("/whitelist/users/{user_code:path}")
 async def update_whitelist_user(user_code: str, item: WhitelistUserCreate, db: AsyncSession = Depends(get_db)):
     # Fetch
     entry = await db.get(RiskWhitelistUser, user_code)
@@ -101,7 +102,8 @@ async def update_whitelist_user(user_code: str, item: WhitelistUserCreate, db: A
     await db.commit()
     return {"status": "success"}
 
-@router.delete("/whitelist/users/{user_code}")
+# FIX: Added :path to capture full string ID properly
+@router.delete("/whitelist/users/{user_code:path}")
 async def delete_whitelist_user(user_code: str, db: AsyncSession = Depends(get_db)):
     entry = await db.get(RiskWhitelistUser, user_code)
     if not entry:
@@ -114,7 +116,8 @@ async def delete_whitelist_user(user_code: str, db: AsyncSession = Depends(get_d
 # ==========================================
 # 2. ADDRESS WHITELIST - UPDATE & DELETE
 # ==========================================
-@router.put("/whitelist/addresses/{address}")
+# FIX: Added :path because crypto addresses can contain special characters
+@router.put("/whitelist/addresses/{address:path}")
 async def update_whitelist_address(address: str, item: WhitelistAddressCreate, db: AsyncSession = Depends(get_db)):
     entry = await db.get(RiskWhitelistAddress, address)
     if not entry:
@@ -127,7 +130,7 @@ async def update_whitelist_address(address: str, item: WhitelistAddressCreate, d
     await db.commit()
     return {"status": "success"}
 
-@router.delete("/whitelist/addresses/{address}")
+@router.delete("/whitelist/addresses/{address:path}")
 async def delete_whitelist_address(address: str, db: AsyncSession = Depends(get_db)):
     entry = await db.get(RiskWhitelistAddress, address)
     if not entry:
@@ -140,8 +143,6 @@ async def delete_whitelist_address(address: str, db: AsyncSession = Depends(get_
 # ==========================================
 # 3. GREYLIST - UPDATE & DELETE
 # ==========================================
-# Note: We cannot change the Primary Key (Value/Type). Only Reason/Status/Expiry.
-
 @router.put("/greylist/update")
 async def update_greylist(item: GreylistCreate, db: AsyncSession = Depends(get_db)):
     # Composite Key Lookup

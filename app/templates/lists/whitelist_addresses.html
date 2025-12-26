@@ -3,6 +3,17 @@
 {% block page_title %}Address Whitelist{% endblock %}
 
 {% block content %}
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
+    <div id="liveToast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage">
+                Action successful.
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center py-3 bg-transparent border-bottom-0">
         <h5 class="mb-0 text-white">Whitelisted Addresses</h5>
@@ -11,24 +22,31 @@
         </button>
     </div>
     <div class="card-body p-0">
-        <table class="table table-hover mb-0 align-middle">
-            <thead>
-                <tr>
-                    <th class="ps-4">Address</th>
-                    <th>Chain</th>
-                    <th>Description</th>
-                    <th>Status</th>
-                    <th class="text-end pe-4">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for addr in addresses %}
-                <tr>
-                    <td class="ps-4 font-monospace text-info small">{{ addr.destination_address }}</td>
-                    <td><span class="badge bg-dark border border-secondary">{{ addr.chain }}</span></td>
-                    <td>{{ addr.description }}</td>
-                    <td><span class="badge rounded-pill text-bg-success">{{ addr.status }}</span></td>
-                    <td class="text-end pe-4">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4">Address</th>
+                        <th>Chain</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for addr in addresses %}
+                    <tr>
+                        <td class="ps-4 font-monospace text-info small">{{ addr.destination_address }}</td>
+                        
+                        <td><span class="badge bg-dark border border-secondary">{{ addr.chain }}</span></td>
+                        
+                        <td class="text-light">{{ addr.description }}</td>
+                        
+                        <td>
+                            <span class="badge rounded-pill text-bg-{{ 'success' if addr.status == 'ACTIVE' else 'secondary' }}">{{ addr.status }}</span>
+                        </td>
+                        
+                        <td class="text-end pe-4">
                             <button class="btn btn-sm btn-outline-primary edit-btn" 
                                     data-addr="{{ addr.destination_address }}"
                                     data-chain="{{ addr.chain }}"
@@ -43,10 +61,11 @@
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -54,18 +73,19 @@
     <div class="modal-dialog">
         <div class="modal-content bg-dark border border-secondary text-white">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title">Whitelist Address</h5>
+                <h5 class="modal-title">Whitelist New Address</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="wlAddrForm">
+                <form id="wlAddrForm" novalidate>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Destination Address</label>
+                        <label class="form-label text-secondary">Destination Address <span class="text-danger">*</span></label>
                         <input type="text" class="form-control bg-black text-white border-secondary" id="wl_address" required>
+                        <div class="invalid-feedback">Destination Address is required.</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Chain</label>
-                        <select class="form-select bg-black text-white border-secondary" id="wl_chain">
+                        <label class="form-label text-secondary">Chain <span class="text-danger">*</span></label>
+                        <select class="form-select bg-black text-white border-secondary" id="wl_chain" required>
                             <option value="TRC20">TRC20</option>
                             <option value="ERC20">ERC20</option>
                             <option value="BTC">BTC</option>
@@ -74,17 +94,20 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Description</label>
+                        <label class="form-label text-secondary">Description <span class="text-danger">*</span></label>
                         <input type="text" class="form-control bg-black text-white border-secondary" id="wl_addr_desc" required>
+                        <div class="invalid-feedback">Description is required.</div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer border-secondary">
-                <button type="button" class="btn btn-primary" id="saveWLAddrBtn">Save</button>
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveWLAddrBtn">Save Address</button>
             </div>
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="editWLAddrModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content bg-dark border border-secondary text-white">
@@ -93,14 +116,14 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form>
+                <form id="editAddrForm" novalidate>
                     <div class="mb-3">
                         <label class="form-label text-secondary">Destination Address</label>
                         <input type="text" class="form-control bg-dark text-secondary border-secondary" id="edit_address" readonly>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Chain</label>
-                        <select class="form-select bg-black text-white border-secondary" id="edit_chain">
+                        <label class="form-label text-secondary">Chain <span class="text-danger">*</span></label>
+                        <select class="form-select bg-black text-white border-secondary" id="edit_chain" required>
                             <option value="TRC20">TRC20</option>
                             <option value="ERC20">ERC20</option>
                             <option value="BTC">BTC</option>
@@ -109,12 +132,13 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Description</label>
-                        <input type="text" class="form-control bg-black text-white border-secondary" id="edit_desc">
+                        <label class="form-label text-secondary">Description <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control bg-black text-white border-secondary" id="edit_desc" required>
+                        <div class="invalid-feedback">Description is required.</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Status</label>
-                        <select class="form-select bg-black text-white border-secondary" id="edit_status">
+                        <label class="form-label text-secondary">Status <span class="text-danger">*</span></label>
+                        <select class="form-select bg-black text-white border-secondary" id="edit_status" required>
                             <option value="ACTIVE">ACTIVE</option>
                             <option value="INACTIVE">INACTIVE</option>
                         </select>
@@ -132,27 +156,40 @@
 
 {% block scripts %}
 <script>
-    // $("#saveWLAddrBtn").click(function() {
-    //     const payload = {
-    //         destination_address: $("#wl_address").val(),
-    //         chain: $("#wl_chain").val(),
-    //         description: $("#wl_addr_desc").val(),
-    //         status: "ACTIVE"
-    //     };
+    // --- Helper: Show Toast Notification ---
+    function showToast(message, type = 'success') {
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = document.getElementById('toastMessage');
+        
+        toastEl.classList.remove('bg-success', 'bg-danger', 'bg-primary');
+        if(type === 'success') toastEl.classList.add('bg-success');
+        else if(type === 'error') toastEl.classList.add('bg-danger');
+        else toastEl.classList.add('bg-primary');
 
-    //     $.ajax({
-    //         url: "/whitelist/addresses/add",
-    //         type: "POST",
-    //         contentType: "application/json",
-    //         data: JSON.stringify(payload),
-    //         success: function() { location.reload(); },
-    //         error: function(xhr) { alert("Error: " + xhr.responseText); }
-    //     });
-    // });
+        toastBody.textContent = message;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
+
+    // --- Helper: Validate Form ---
+    function validateForm(formId) {
+        const form = document.getElementById(formId);
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return false;
+        }
+        return true;
+    }
+
     $(document).ready(function() {
 
         // --- 1. ADD NEW ADDRESS ---
         $("#saveWLAddrBtn").click(function() {
+            if (!validateForm('wlAddrForm')) {
+                showToast("Please fill in all required fields.", "error");
+                return;
+            }
+
             const payload = {
                 destination_address: $("#wl_address").val(),
                 chain: $("#wl_chain").val(),
@@ -160,22 +197,18 @@
                 status: "ACTIVE"
             };
 
-            // Basic Validation
-            if(!payload.destination_address) {
-                alert("Address is required");
-                return;
-            }
-
             $.ajax({
                 url: "/whitelist/addresses/add",
                 type: "POST",
                 contentType: "application/json",
                 data: JSON.stringify(payload),
                 success: function() {
-                    location.reload(); 
+                    $('#addWLAddrModal').modal('hide');
+                    showToast("Address whitelisted successfully!", "success");
+                    setTimeout(() => location.reload(), 1000);
                 },
                 error: function(xhr) {
-                    alert("Error adding address: " + xhr.responseText);
+                    showToast("Error adding address: " + xhr.responseText, "error");
                 }
             });
         });
@@ -188,12 +221,18 @@
             $("#edit_desc").val($(this).data("desc"));
             $("#edit_status").val($(this).data("status"));
 
+            $("#editAddrForm").removeClass('was-validated'); // Clear validation styles
             // Show Modal
             $('#editWLAddrModal').modal('show');
         });
 
         // --- 3. SUBMIT UPDATE (PUT) ---
         $("#updateWLAddrBtn").click(function() {
+            if (!validateForm('editAddrForm')) {
+                showToast("Please fill in all required fields.", "error");
+                return;
+            }
+
             const address = $("#edit_address").val();
             
             const payload = {
@@ -209,10 +248,12 @@
                 contentType: "application/json",
                 data: JSON.stringify(payload),
                 success: function() {
-                    location.reload();
+                    $('#editWLAddrModal').modal('hide');
+                    showToast("Address updated successfully!", "success");
+                    setTimeout(() => location.reload(), 1000);
                 },
                 error: function(xhr) {
-                    alert("Error updating address: " + xhr.responseText);
+                    showToast("Error updating address: " + xhr.responseText, "error");
                 }
             });
         });
@@ -229,10 +270,11 @@
                 url: "/whitelist/addresses/" + encodeURIComponent(address),
                 type: "DELETE",
                 success: function() {
-                    location.reload();
+                    showToast("Address removed from whitelist.", "success");
+                    setTimeout(() => location.reload(), 1000);
                 },
                 error: function(xhr) {
-                    alert("Error deleting address: " + xhr.responseText);
+                    showToast("Error deleting address: " + xhr.responseText, "error");
                 }
             });
         });

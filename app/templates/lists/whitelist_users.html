@@ -3,6 +3,17 @@
 {% block page_title %}User Whitelist{% endblock %}
 
 {% block content %}
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
+    <div id="liveToast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage">
+                Action successful.
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center py-3 bg-transparent border-bottom-0">
         <h5 class="mb-0 text-white">Whitelisted Users</h5>
@@ -11,41 +22,46 @@
         </button>
     </div>
     <div class="card-body p-0">
-        <table class="table table-hover mb-0 align-middle">
-            <thead>
-                <tr>
-                    <th class="ps-4">User Code</th>
-                    <th>Description</th>
-                    <th>Status</th>
-                    <th>Expires At</th>
-                    <th class="text-end pe-4">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for user in users %}
-                <tr>
-                    <td class="ps-4 fw-bold text-info">{{ user.user_code }}</td>
-                    <td>{{ user.description }}</td>
-                    <td><span class="badge rounded-pill text-bg-success">{{ user.status }}</span></td>
-                    <td class="text-muted small">
-                        {% if user.expires_at %}{{ user.expires_at.strftime('%Y-%m-%d') }}{% else %}Never{% endif %}
-                    </td>
-                    <td class="text-end pe-4">
-                    <button class="btn btn-sm btn-outline-primary edit-btn" 
-                            data-code="{{ user.user_code }}"
-                            data-desc="{{ user.description }}"
-                            data-status="{{ user.status }}"
-                            data-expires="{{ user.expires_at }}">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger delete-btn" data-code="{{ user.user_code }}">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4">User Code</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th>Expires At</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-info">{{ user.user_code }}</td>
+                        <td>{{ user.description }}</td>
+                        <td><span class="badge rounded-pill text-bg-{{ 'success' if user.status == 'ACTIVE' else 'secondary' }}">{{ user.status }}</span></td>
+                        <td class="text-muted small">
+                            {% if user.expires_at %}{{ user.expires_at.strftime('%Y-%m-%d') }}{% else %}Never{% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <button class="btn btn-sm btn-outline-primary edit-btn" 
+                                    data-code="{{ user.user_code }}"
+                                    data-desc="{{ user.description }}"
+                                    data-status="{{ user.status }}"
+                                    data-expires="{{ user.expires_at }}"
+                                    title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger delete-btn" 
+                                    data-code="{{ user.user_code }}"
+                                    title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -57,14 +73,16 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="wlUserForm">
+                <form id="wlUserForm" novalidate>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">User Code</label>
+                        <label class="form-label text-secondary">User Code <span class="text-danger">*</span></label>
                         <input type="text" class="form-control bg-black text-white border-secondary" id="wl_user_code" required>
+                        <div class="invalid-feedback">User Code is required.</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Description</label>
+                        <label class="form-label text-secondary">Description <span class="text-danger">*</span></label>
                         <input type="text" class="form-control bg-black text-white border-secondary" id="wl_user_desc" required>
+                        <div class="invalid-feedback">Description is required.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label text-secondary">Expires At (Optional)</label>
@@ -73,11 +91,13 @@
                 </form>
             </div>
             <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="saveWLUserBtn">Save</button>
             </div>
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="editUserModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content bg-dark border border-secondary text-white">
@@ -86,18 +106,19 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form>
+                <form id="editUserForm" novalidate>
                     <div class="mb-3">
                         <label class="form-label text-secondary">User Code</label>
                         <input type="text" class="form-control bg-dark text-secondary border-secondary" id="edit_code" readonly>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Description</label>
-                        <input type="text" class="form-control bg-black text-white border-secondary" id="edit_desc">
+                        <label class="form-label text-secondary">Description <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control bg-black text-white border-secondary" id="edit_desc" required>
+                        <div class="invalid-feedback">Description is required.</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-secondary">Status</label>
-                        <select class="form-select bg-black text-white border-secondary" id="edit_status">
+                        <label class="form-label text-secondary">Status <span class="text-danger">*</span></label>
+                        <select class="form-select bg-black text-white border-secondary" id="edit_status" required>
                             <option value="ACTIVE">ACTIVE</option>
                             <option value="INACTIVE">INACTIVE</option>
                         </select>
@@ -118,61 +139,131 @@
 
 {% block scripts %}
 <script>
-    $("#saveWLUserBtn").click(function() {
-        const payload = {
-            user_code: $("#wl_user_code").val(),
-            description: $("#wl_user_desc").val(),
-            expires_at: $("#wl_user_expires").val() ? new Date($("#wl_user_expires").val()).toISOString() : null,
-            status: "ACTIVE"
-        };
+    // --- Helper: Show Toast Notification ---
+    function showToast(message, type = 'success') {
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = document.getElementById('toastMessage');
+        
+        toastEl.classList.remove('bg-success', 'bg-danger', 'bg-primary');
+        if(type === 'success') toastEl.classList.add('bg-success');
+        else if(type === 'error') toastEl.classList.add('bg-danger');
+        else toastEl.classList.add('bg-primary');
 
-        $.ajax({
-            url: "/whitelist/users/add",
-            type: "POST",
-            contentType: "application/json",
-            data: JSON.stringify(payload),
-            success: function() { location.reload(); },
-            error: function(xhr) { alert("Error: " + xhr.responseText); }
-        });
-    });
-    // EDIT
-    $(".edit-btn").click(function() {
-        $("#edit_code").val($(this).data("code"));
-        $("#edit_desc").val($(this).data("desc"));
-        $("#edit_status").val($(this).data("status"));
-        let dateStr = $(this).data("expires");
-        $("#edit_expires").val(dateStr && dateStr != "None" ? dateStr.split('T')[0] : "");
-        $('#editUserModal').modal('show');
-    });
+        toastBody.textContent = message;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
 
-    $("#updateUserBtn").click(function() {
-        const code = $("#edit_code").val();
-        const payload = {
-            user_code: code,
-            description: $("#edit_desc").val(),
-            status: $("#edit_status").val(),
-            expires_at: $("#edit_expires").val() ? new Date($("#edit_expires").val()).toISOString() : null
-        };
-        $.ajax({
-            url: "/whitelist/users/" + code,
-            type: "PUT",
-            contentType: "application/json",
-            data: JSON.stringify(payload),
-            success: function() { location.reload(); },
-            error: function(xhr) { alert("Error: " + xhr.responseText); }
-        });
-    });
+    // --- Helper: Validate Form ---
+    function validateForm(formId) {
+        const form = document.getElementById(formId);
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return false;
+        }
+        return true;
+    }
 
-    // DELETE
-    $(".delete-btn").click(function() {
-        if(!confirm("Remove user from whitelist?")) return;
-        const code = $(this).data("code");
-        $.ajax({
-            url: "/whitelist/users/" + code,
-            type: "DELETE",
-            success: function() { location.reload(); },
-            error: function(xhr) { alert("Error: " + xhr.responseText); }
+    $(document).ready(function() {
+        
+        // --- ADD NEW ---
+        $("#saveWLUserBtn").click(function() {
+            if (!validateForm('wlUserForm')) {
+                showToast("Please fill in all required fields.", "error");
+                return;
+            }
+
+            const payload = {
+                user_code: $("#wl_user_code").val(),
+                description: $("#wl_user_desc").val(),
+                expires_at: $("#wl_user_expires").val() ? new Date($("#wl_user_expires").val()).toISOString() : null,
+                status: "ACTIVE"
+            };
+
+            $.ajax({
+                url: "/whitelist/users/add",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify(payload),
+                success: function() { 
+                    $('#addWLUserModal').modal('hide');
+                    showToast("User added to whitelist!", "success");
+                    setTimeout(() => location.reload(), 1000);
+                },
+                error: function(xhr) { 
+                    showToast("Error adding user: " + xhr.responseText, "error");
+                }
+            });
         });
+
+        // --- EDIT PREP ---
+        $(".edit-btn").click(function() {
+            $("#edit_code").val($(this).data("code"));
+            $("#edit_desc").val($(this).data("desc"));
+            $("#edit_status").val($(this).data("status"));
+            
+            let dateStr = $(this).data("expires");
+            if(dateStr && dateStr != "None") {
+                $("#edit_expires").val(dateStr.split('T')[0]);
+            } else {
+                $("#edit_expires").val("");
+            }
+            
+            $("#editUserForm").removeClass('was-validated'); // Clear validation styles
+            $('#editUserModal').modal('show');
+        });
+
+        // --- UPDATE ---
+        $("#updateUserBtn").click(function() {
+            if (!validateForm('editUserForm')) {
+                showToast("Please fill in all required fields.", "error");
+                return;
+            }
+
+            const code = $("#edit_code").val();
+            const payload = {
+                user_code: code,
+                description: $("#edit_desc").val(),
+                status: $("#edit_status").val(),
+                expires_at: $("#edit_expires").val() ? new Date($("#edit_expires").val()).toISOString() : null
+            };
+
+            $.ajax({
+                url: "/whitelist/users/" + encodeURIComponent(code),
+                type: "PUT",
+                contentType: "application/json",
+                data: JSON.stringify(payload),
+                success: function() { 
+                    $('#editUserModal').modal('hide');
+                    showToast("User updated successfully!", "success");
+                    setTimeout(() => location.reload(), 1000);
+                },
+                error: function(xhr) { 
+                    showToast("Error updating user: " + xhr.responseText, "error");
+                }
+            });
+        });
+
+        // --- DELETE ---
+        $(".delete-btn").click(function() {
+            if(!confirm("Remove user from whitelist?")) return;
+            
+            const code = $(this).data("code");
+            
+            
+            $.ajax({
+                url: "/whitelist/users/" + encodeURIComponent(code),
+                type: "DELETE",
+                success: function() { 
+                    showToast("User removed from whitelist.", "success");
+                    setTimeout(() => location.reload(), 1000);
+                },
+                error: function(xhr) { 
+                    showToast("Error deleting user: " + xhr.responseText, "error");
+                }
+            });
+        });
+
     });
 </script>
 {% endblock %}

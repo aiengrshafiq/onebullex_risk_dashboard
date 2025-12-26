@@ -3,6 +3,17 @@
 {% block page_title %}Blacklist Management{% endblock %}
 
 {% block content %}
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
+    <div id="liveToast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="toastMessage">
+                Action successful.
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
 <ul class="nav nav-tabs border-secondary mb-4" id="blacklistTabs" role="tablist">
     <li class="nav-item">
         <button class="nav-link active text-light" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button">
@@ -155,121 +166,348 @@
 
 </div>
 
-<div class="modal fade" id="addUserModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-dark border-secondary text-white"><div class="modal-header border-secondary"><h5 class="modal-title">Add Blacklist User</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="addUserForm">
-    <div class="mb-3"><label class="text-secondary">User Code</label><input type="text" class="form-control bg-black text-white border-secondary" id="new_user_code" required></div>
-    <div class="mb-3"><label class="text-secondary">Reason</label><textarea class="form-control bg-black text-white border-secondary" id="new_user_reason" required></textarea></div>
-    <div class="mb-3"><label class="text-secondary">Expires</label><input type="date" class="form-control bg-black text-white border-secondary" id="new_user_exp"></div>
-</form></div><div class="modal-footer border-secondary"><button class="btn btn-danger" onclick="saveUser()">Save</button></div></div></div></div>
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Add Blacklist User</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addUserForm" novalidate>
+                    <div class="mb-3">
+                        <label class="text-secondary">User Code <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control bg-black text-white border-secondary" id="new_user_code" required>
+                        <div class="invalid-feedback">User Code is required.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control bg-black text-white border-secondary" id="new_user_reason" required></textarea>
+                        <div class="invalid-feedback">Reason is required.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Expires (Optional)</label>
+                        <input type="date" class="form-control bg-black text-white border-secondary" id="new_user_exp">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button class="btn btn-danger" id="saveUserBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-<div class="modal fade" id="addIPModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-dark border-secondary text-white"><div class="modal-header border-secondary"><h5 class="modal-title">Add Blacklist IP</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="addIPForm">
-    <div class="mb-3"><label class="text-secondary">IP Address</label><input type="text" class="form-control bg-black text-white border-secondary" id="new_ip_addr" required></div>
-    <div class="mb-3"><label class="text-secondary">Reason</label><textarea class="form-control bg-black text-white border-secondary" id="new_ip_reason" required></textarea></div>
-    <div class="mb-3"><label class="text-secondary">Expires</label><input type="date" class="form-control bg-black text-white border-secondary" id="new_ip_exp"></div>
-</form></div><div class="modal-footer border-secondary"><button class="btn btn-danger" onclick="saveIP()">Save</button></div></div></div></div>
+<div class="modal fade" id="addIPModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Add Blacklist IP</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addIPForm" novalidate>
+                    <div class="mb-3">
+                        <label class="text-secondary">IP Address <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control bg-black text-white border-secondary" id="new_ip_addr" required>
+                        <div class="invalid-feedback">IP Address is required.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control bg-black text-white border-secondary" id="new_ip_reason" required></textarea>
+                        <div class="invalid-feedback">Reason is required.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Expires (Optional)</label>
+                        <input type="date" class="form-control bg-black text-white border-secondary" id="new_ip_exp">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button class="btn btn-danger" id="saveIPBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-<div class="modal fade" id="addDomainModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-dark border-secondary text-white"><div class="modal-header border-secondary"><h5 class="modal-title">Add Blacklist Domain</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="addDomainForm">
-    <div class="mb-3"><label class="text-secondary">Domain</label><input type="text" class="form-control bg-black text-white border-secondary" id="new_domain_val" required></div>
-    <div class="mb-3"><label class="text-secondary">Reason</label><textarea class="form-control bg-black text-white border-secondary" id="new_domain_reason" required></textarea></div>
-    <div class="mb-3"><label class="text-secondary">Expires</label><input type="date" class="form-control bg-black text-white border-secondary" id="new_domain_exp"></div>
-</form></div><div class="modal-footer border-secondary"><button class="btn btn-danger" onclick="saveDomain()">Save</button></div></div></div></div>
+<div class="modal fade" id="addDomainModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Add Blacklist Domain</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addDomainForm" novalidate>
+                    <div class="mb-3">
+                        <label class="text-secondary">Domain <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control bg-black text-white border-secondary" id="new_domain_val" required>
+                        <div class="invalid-feedback">Domain is required.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control bg-black text-white border-secondary" id="new_domain_reason" required></textarea>
+                        <div class="invalid-feedback">Reason is required.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Expires (Optional)</label>
+                        <input type="date" class="form-control bg-black text-white border-secondary" id="new_domain_exp">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button class="btn btn-danger" id="saveDomainBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-<div class="modal fade" id="addAddrModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-dark border-secondary text-white"><div class="modal-header border-secondary"><h5 class="modal-title">Add Blacklist Wallet</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="addAddrForm">
-    <div class="mb-3"><label class="text-secondary">Address</label><input type="text" class="form-control bg-black text-white border-secondary" id="new_addr_val" required></div>
-    <div class="mb-3"><label class="text-secondary">Chain</label><select class="form-select bg-black text-white border-secondary" id="new_addr_chain"><option>TRC20</option><option>ERC20</option><option>BTC</option><option>SOL</option></select></div>
-    <div class="mb-3"><label class="text-secondary">Reason</label><textarea class="form-control bg-black text-white border-secondary" id="new_addr_reason" required></textarea></div>
-    <div class="mb-3"><label class="text-secondary">Expires</label><input type="date" class="form-control bg-black text-white border-secondary" id="new_addr_exp"></div>
-</form></div><div class="modal-footer border-secondary"><button class="btn btn-danger" onclick="saveAddr()">Save</button></div></div></div></div>
+<div class="modal fade" id="addAddrModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Add Blacklist Wallet</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addAddrForm" novalidate>
+                    <div class="mb-3">
+                        <label class="text-secondary">Address <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control bg-black text-white border-secondary" id="new_addr_val" required>
+                        <div class="invalid-feedback">Wallet Address is required.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Chain <span class="text-danger">*</span></label>
+                        <select class="form-select bg-black text-white border-secondary" id="new_addr_chain" required>
+                            <option value="TRC20">TRC20</option>
+                            <option value="ERC20">ERC20</option>
+                            <option value="BTC">BTC</option>
+                            <option value="SOL">SOL</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control bg-black text-white border-secondary" id="new_addr_reason" required></textarea>
+                        <div class="invalid-feedback">Reason is required.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Expires (Optional)</label>
+                        <input type="date" class="form-control bg-black text-white border-secondary" id="new_addr_exp">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button class="btn btn-danger" id="saveAddrBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-<div class="modal fade" id="editGenericModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content bg-dark border-secondary text-white"><div class="modal-header border-secondary"><h5 class="modal-title">Edit Entry</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form>
-    <input type="hidden" id="edit_type">
-    <div class="mb-3"><label class="text-secondary">ID (Read Only)</label><input type="text" class="form-control bg-dark text-secondary border-secondary" id="edit_id" readonly></div>
-    <div class="mb-3" id="edit_chain_wrapper" style="display:none;"><label class="text-secondary">Chain</label><select class="form-select bg-black text-white border-secondary" id="edit_chain"><option>TRC20</option><option>ERC20</option><option>BTC</option><option>SOL</option></select></div>
-    <div class="mb-3"><label class="text-secondary">Reason</label><textarea class="form-control bg-black text-white border-secondary" id="edit_reason"></textarea></div>
-    <div class="mb-3"><label class="text-secondary">Status</label><select class="form-select bg-black text-white border-secondary" id="edit_status"><option>ACTIVE</option><option>INACTIVE</option></select></div>
-    <div class="mb-3"><label class="text-secondary">Expires</label><input type="date" class="form-control bg-black text-white border-secondary" id="edit_exp"></div>
-</form></div><div class="modal-footer border-secondary"><button class="btn btn-primary" onclick="submitEdit()">Update</button></div></div></div></div>
+<div class="modal fade" id="editGenericModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border-secondary text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Edit Entry</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editGenericForm" novalidate>
+                    <input type="hidden" id="edit_type">
+                    <div class="mb-3">
+                        <label class="text-secondary">ID (Read Only)</label>
+                        <input type="text" class="form-control bg-dark text-secondary border-secondary" id="edit_id" readonly>
+                    </div>
+                    <div class="mb-3" id="edit_chain_wrapper" style="display:none;">
+                        <label class="text-secondary">Chain <span class="text-danger">*</span></label>
+                        <select class="form-select bg-black text-white border-secondary" id="edit_chain" required>
+                            <option value="TRC20">TRC20</option>
+                            <option value="ERC20">ERC20</option>
+                            <option value="BTC">BTC</option>
+                            <option value="SOL">SOL</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Reason <span class="text-danger">*</span></label>
+                        <textarea class="form-control bg-black text-white border-secondary" id="edit_reason" required></textarea>
+                        <div class="invalid-feedback">Reason is required.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Status <span class="text-danger">*</span></label>
+                        <select class="form-select bg-black text-white border-secondary" id="edit_status" required>
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="INACTIVE">INACTIVE</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-secondary">Expires (Optional)</label>
+                        <input type="date" class="form-control bg-black text-white border-secondary" id="edit_exp">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button class="btn btn-primary" id="updateGenericBtn">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // --- HELPER TO FORMAT DATE ---
+    // --- Helper: Show Toast Notification ---
+    function showToast(message, type = 'success') {
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = document.getElementById('toastMessage');
+        
+        toastEl.classList.remove('bg-success', 'bg-danger', 'bg-primary');
+        if(type === 'success') toastEl.classList.add('bg-success');
+        else if(type === 'error') toastEl.classList.add('bg-danger');
+        else toastEl.classList.add('bg-primary');
+
+        toastBody.textContent = message;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
+
+    // --- Helper: Validate Form ---
+    function validateForm(formId) {
+        const form = document.getElementById(formId);
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return false;
+        }
+        return true;
+    }
+
     function fmtDate(val) { return (val && val !== 'None') ? new Date(val).toISOString() : null; }
     function parseDateInput(val) { return (val && val !== 'None') ? val.split('T')[0] : ''; }
 
-    // ================= CREATE ACTIONS =================
-    function saveUser() {
-        $.ajax({ url: "/blacklist/user", type: "POST", contentType: "application/json",
-            data: JSON.stringify({ user_code: $("#new_user_code").val(), reason: $("#new_user_reason").val(), expires_at: fmtDate($("#new_user_exp").val()), status: "ACTIVE" }),
-            success: function() { location.reload(); }, error: function(x) { alert(x.responseText); } });
-    }
-    function saveIP() {
-        $.ajax({ url: "/blacklist/ip", type: "POST", contentType: "application/json",
-            data: JSON.stringify({ ip_address: $("#new_ip_addr").val(), reason: $("#new_ip_reason").val(), expires_at: fmtDate($("#new_ip_exp").val()), status: "ACTIVE" }),
-            success: function() { location.reload(); }, error: function(x) { alert(x.responseText); } });
-    }
-    function saveDomain() {
-        $.ajax({ url: "/blacklist/domain", type: "POST", contentType: "application/json",
-            data: JSON.stringify({ email_domain: $("#new_domain_val").val(), reason: $("#new_domain_reason").val(), expires_at: fmtDate($("#new_domain_exp").val()), status: "ACTIVE" }),
-            success: function() { location.reload(); }, error: function(x) { alert(x.responseText); } });
-    }
-    function saveAddr() {
-        $.ajax({ url: "/blacklist/address", type: "POST", contentType: "application/json",
-            data: JSON.stringify({ destination_address: $("#new_addr_val").val(), chain: $("#new_addr_chain").val(), reason: $("#new_addr_reason").val(), expires_at: fmtDate($("#new_addr_exp").val()), status: "ACTIVE" }),
-            success: function() { location.reload(); }, error: function(x) { alert(x.responseText); } });
-    }
+    $(document).ready(function() {
 
-    // ================= DELETE ACTIONS =================
-    $(".delete-user-btn").click(function() { if(confirm("Delete?")) $.ajax({ url: "/blacklist/user/" + $(this).data("id"), type: "DELETE", success: function() { location.reload(); } }); });
-    $(".delete-ip-btn").click(function() { if(confirm("Delete?")) $.ajax({ url: "/blacklist/ip/" + $(this).data("id"), type: "DELETE", success: function() { location.reload(); } }); });
-    $(".delete-domain-btn").click(function() { if(confirm("Delete?")) $.ajax({ url: "/blacklist/domain/" + $(this).data("id"), type: "DELETE", success: function() { location.reload(); } }); });
-    $(".delete-addr-btn").click(function() { if(confirm("Delete?")) $.ajax({ url: "/blacklist/address/" + encodeURIComponent($(this).data("id")), type: "DELETE", success: function() { location.reload(); } }); });
-
-    // ================= EDIT ACTIONS =================
-    // We use one generic modal and configure it based on type
-    function openEdit(type, id, reason, status, exp, chain=null) {
-        $("#edit_type").val(type);
-        $("#edit_id").val(id);
-        $("#edit_reason").val(reason);
-        $("#edit_status").val(status);
-        $("#edit_exp").val(parseDateInput(exp));
-        
-        if(type === 'addr') {
-            $("#edit_chain_wrapper").show();
-            $("#edit_chain").val(chain);
-        } else {
-            $("#edit_chain_wrapper").hide();
-        }
-        $('#editGenericModal').modal('show');
-    }
-
-    $(".edit-user-btn").click(function() { openEdit('user', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp")); });
-    $(".edit-ip-btn").click(function() { openEdit('ip', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp")); });
-    $(".edit-domain-btn").click(function() { openEdit('domain', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp")); });
-    $(".edit-addr-btn").click(function() { openEdit('addr', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp"), $(this).data("chain")); });
-
-    function submitEdit() {
-        const type = $("#edit_type").val();
-        const id = $("#edit_id").val();
-        const payload = {
-            reason: $("#edit_reason").val(),
-            status: $("#edit_status").val(),
-            expires_at: fmtDate($("#edit_exp").val())
-        };
-
-        let url = "";
-        if(type === 'user') { url = "/blacklist/user/" + id; payload.user_code = id; }
-        else if(type === 'ip') { url = "/blacklist/ip/" + id; payload.ip_address = id; }
-        else if(type === 'domain') { url = "/blacklist/domain/" + id; payload.email_domain = id; }
-        else if(type === 'addr') { 
-            url = "/blacklist/address/" + encodeURIComponent(id); 
-            payload.destination_address = id; 
-            payload.chain = $("#edit_chain").val(); 
+        // FIX: RESTORE ACTIVE TAB
+        var activeTab = localStorage.getItem('activeBlacklistTab');
+        if(activeTab){
+            // Find the button that targets this pane/tab ID
+            var tabBtn = document.querySelector(`button[id="${activeTab}"]`);
+            if(tabBtn) {
+                var tabTrigger = new bootstrap.Tab(tabBtn);
+                tabTrigger.show();
+            }
         }
 
-        $.ajax({ url: url, type: "PUT", contentType: "application/json", data: JSON.stringify(payload),
-            success: function() { location.reload(); }, error: function(x) { alert("Error: " + x.responseText); }
+        // FIX: SAVE ACTIVE TAB ON CLICK
+        $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+            // Save the ID of the clicked button (e.g., 'users-tab')
+            localStorage.setItem('activeBlacklistTab', e.target.id);
         });
-    }
+
+        // ================= CREATE ACTIONS =================
+        $("#saveUserBtn").click(function() {
+            if(!validateForm('addUserForm')) { showToast("Please fill in all required fields.", "error"); return; }
+            $.ajax({ url: "/blacklist/user", type: "POST", contentType: "application/json",
+                data: JSON.stringify({ user_code: $("#new_user_code").val(), reason: $("#new_user_reason").val(), expires_at: fmtDate($("#new_user_exp").val()), status: "ACTIVE" }),
+                success: function() { $('#addUserModal').modal('hide'); showToast("User blacklisted!", "success"); setTimeout(() => location.reload(), 1000); }, 
+                error: function(x) { showToast("Error: " + x.responseText, "error"); } 
+            });
+        });
+
+        $("#saveIPBtn").click(function() {
+            if(!validateForm('addIPForm')) { showToast("Please fill in all required fields.", "error"); return; }
+            $.ajax({ url: "/blacklist/ip", type: "POST", contentType: "application/json",
+                data: JSON.stringify({ ip_address: $("#new_ip_addr").val(), reason: $("#new_ip_reason").val(), expires_at: fmtDate($("#new_ip_exp").val()), status: "ACTIVE" }),
+                success: function() { $('#addIPModal').modal('hide'); showToast("IP blacklisted!", "success"); setTimeout(() => location.reload(), 1000); }, 
+                error: function(x) { showToast("Error: " + x.responseText, "error"); } 
+            });
+        });
+
+        $("#saveDomainBtn").click(function() {
+            if(!validateForm('addDomainForm')) { showToast("Please fill in all required fields.", "error"); return; }
+            $.ajax({ url: "/blacklist/domain", type: "POST", contentType: "application/json",
+                data: JSON.stringify({ email_domain: $("#new_domain_val").val(), reason: $("#new_domain_reason").val(), expires_at: fmtDate($("#new_domain_exp").val()), status: "ACTIVE" }),
+                success: function() { $('#addDomainModal').modal('hide'); showToast("Domain blacklisted!", "success"); setTimeout(() => location.reload(), 1000); }, 
+                error: function(x) { showToast("Error: " + x.responseText, "error"); } 
+            });
+        });
+
+        $("#saveAddrBtn").click(function() {
+            if(!validateForm('addAddrForm')) { showToast("Please fill in all required fields.", "error"); return; }
+            $.ajax({ url: "/blacklist/address", type: "POST", contentType: "application/json",
+                data: JSON.stringify({ destination_address: $("#new_addr_val").val(), chain: $("#new_addr_chain").val(), reason: $("#new_addr_reason").val(), expires_at: fmtDate($("#new_addr_exp").val()), status: "ACTIVE" }),
+                success: function() { $('#addAddrModal').modal('hide'); showToast("Wallet blacklisted!", "success"); setTimeout(() => location.reload(), 1000); }, 
+                error: function(x) { showToast("Error: " + x.responseText, "error"); } 
+            });
+        });
+
+        // ================= DELETE ACTIONS =================
+        function handleDelete(url) {
+            if(confirm("Are you sure you want to remove this entry?")) {
+                $.ajax({ url: url, type: "DELETE",
+                    success: function() { showToast("Entry removed.", "success"); setTimeout(() => location.reload(), 1000); },
+                    error: function(x) { showToast("Error: " + x.responseText, "error"); }
+                });
+            }
+        }
+
+        // Added encodeURIComponent to handle special characters properly
+        $(".delete-user-btn").click(function() { handleDelete("/blacklist/user/" + encodeURIComponent($(this).data("id"))); });
+        $(".delete-ip-btn").click(function() { handleDelete("/blacklist/ip/" + encodeURIComponent($(this).data("id"))); });
+        $(".delete-domain-btn").click(function() { handleDelete("/blacklist/domain/" + encodeURIComponent($(this).data("id"))); });
+        $(".delete-addr-btn").click(function() { handleDelete("/blacklist/address/" + encodeURIComponent($(this).data("id"))); });
+
+        // ================= EDIT ACTIONS =================
+        function openEdit(type, id, reason, status, exp, chain=null) {
+            $("#edit_type").val(type);
+            $("#edit_id").val(id);
+            $("#edit_reason").val(reason);
+            $("#edit_status").val(status);
+            $("#edit_exp").val(parseDateInput(exp));
+            
+            if(type === 'addr') {
+                $("#edit_chain_wrapper").show();
+                $("#edit_chain").val(chain);
+                $("#edit_chain").prop('required', true);
+            } else {
+                $("#edit_chain_wrapper").hide();
+                $("#edit_chain").prop('required', false);
+            }
+            
+            $("#editGenericForm").removeClass('was-validated');
+            $('#editGenericModal').modal('show');
+        }
+
+        $(".edit-user-btn").click(function() { openEdit('user', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp")); });
+        $(".edit-ip-btn").click(function() { openEdit('ip', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp")); });
+        $(".edit-domain-btn").click(function() { openEdit('domain', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp")); });
+        $(".edit-addr-btn").click(function() { openEdit('addr', $(this).data("id"), $(this).data("reason"), $(this).data("status"), $(this).data("exp"), $(this).data("chain")); });
+
+        $("#updateGenericBtn").click(function() {
+            if(!validateForm('editGenericForm')) { showToast("Please fill in all required fields.", "error"); return; }
+
+            const type = $("#edit_type").val();
+            const id = $("#edit_id").val();
+            const payload = {
+                reason: $("#edit_reason").val(),
+                status: $("#edit_status").val(),
+                expires_at: fmtDate($("#edit_exp").val())
+            };
+
+            let url = "";
+            // Added encodeURIComponent to PUT requests as well
+            if(type === 'user') { url = "/blacklist/user/" + encodeURIComponent(id); payload.user_code = id; }
+            else if(type === 'ip') { url = "/blacklist/ip/" + encodeURIComponent(id); payload.ip_address = id; }
+            else if(type === 'domain') { url = "/blacklist/domain/" + encodeURIComponent(id); payload.email_domain = id; }
+            else if(type === 'addr') { 
+                url = "/blacklist/address/" + encodeURIComponent(id); 
+                payload.destination_address = id; 
+                payload.chain = $("#edit_chain").val(); 
+            }
+
+            $.ajax({ url: url, type: "PUT", contentType: "application/json", data: JSON.stringify(payload),
+                success: function() { $('#editGenericModal').modal('hide'); showToast("Entry updated!", "success"); setTimeout(() => location.reload(), 1000); }, 
+                error: function(x) { showToast("Error: " + x.responseText, "error"); }
+            });
+        });
+    });
 </script>
 {% endblock %}

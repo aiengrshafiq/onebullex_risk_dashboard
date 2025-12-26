@@ -60,11 +60,12 @@ jobs:
         echo "SAE_IMAGE_URL=$VPC_IMAGE_URL" >> $GITHUB_ENV
         echo "Using VPC URL for Deployment: $VPC_IMAGE_URL"
 
-    # 6. Deploy to SAE (Uses VPC URL)
+    # 6. Deploy to SAE (Uses VPC URL + ACR Instance ID)
     - name: Deploy to SAE
       run: |
         aliyun sae DeployApplication \
           --endpoint sae.ap-northeast-1.aliyuncs.com \
           --AppId ${{ secrets.ALIYUN_SAE_APP_ID }} \
           --ImageUrl ${{ env.SAE_IMAGE_URL }} \
+          --AcrInstanceId "cri-7lw9a26kgowh6dao" \
           --MinReadyInstances 1

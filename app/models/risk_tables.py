@@ -5,6 +5,9 @@ from sqlalchemy import PrimaryKeyConstraint
 from sqlalchemy import Boolean, Float, Double
 from sqlalchemy.dialects.postgresql import JSONB
 
+from sqlalchemy import BigInteger, Numeric
+
+
 class RiskRule(Base):
     __tablename__ = "risk_rules"
     __table_args__ = {"schema": "rt"}  # Explicitly targeting the 'rt' schema
@@ -173,3 +176,15 @@ class RiskWithdrawDecision(Base):
     features_snapshot = Column(JSONB) 
     
     decision_timestamp = Column(DateTime(timezone=True))
+
+
+# NEW TABLE DEFINITION
+class UserDevice(Base):
+    __tablename__ = "user_device"
+    __table_args__ = {"schema": "rt"}
+
+    id = Column(BigInteger, primary_key=True)
+    user_code = Column(BigInteger)
+    event_id = Column(BigInteger)  # This maps to txn_id
+    country = Column(String)
+    country_code = Column(String)

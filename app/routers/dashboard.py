@@ -6,7 +6,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.core.database import get_db
-from app.models.risk_tables import RiskWithdrawDecision
+# Ensure UserDevice is imported here
+from app.models.risk_tables import RiskWithdrawDecision, UserDevice
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -23,6 +24,27 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
     )
     logs = result.scalars().all()
 
+    # --- 2. FETCH COUNTRIES (New Logic) ---
+    # Extract transaction IDs to batch fetch country info
+    # UserDevice.event_id is BigInt, log.txn_id is usually String in JSON/Log
+    txn_ids = []
+    for log in logs:
+        if log.txn_id and log.txn_id.isdigit():
+            txn_ids.append(int(log.txn_id))
+    
+    # Create a Map: txn_id -> Country Name
+    txn_country_map = {}
+    if txn_ids:
+        # Fetch only what we need
+        device_res = await db.execute(
+            select(UserDevice.event_id, UserDevice.country)
+            .where(UserDevice.event_id.in_(txn_ids))
+        )
+        for row in device_res.all():
+            # row[0] = event_id, row[1] = country
+            if row[1]:
+                txn_country_map[str(row[0])] = row[1] # Store as string key for easy lookup
+
     # --- METRIC CONTAINERS ---
     total_txns = len(logs)
     
@@ -37,7 +59,7 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
     }
     
     threat_counts = Counter()
-    currency_risk = defaultdict(float)
+    country_risk = defaultdict(float) # Changed to Country
     
     hourly_stats = defaultdict(lambda: {"rule_lats": [], "ai_lats": [], "pass_vol": 0.0, "block_vol": 0.0})
     
@@ -49,12 +71,11 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
     ai_save_of_day = None
     highest_ai_confidence = 0.0
     
-    # NEW: Pre-processed list for the frontend table
     recent_blocks_display = []
 
     # --- PROCESSING LOOP ---
     for log in logs:
-        # A. Parse Snapshot (Safe for String OR Dict)
+        # A. Parse Snapshot
         data = {}
         if log.features_snapshot:
             try:
@@ -66,8 +87,9 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
                 data = {}
 
         amount = float(data.get("withdrawal_amount", 0.0))
-        # Safe extraction of currency
-        currency = data.get("withdraw_currency", "CRYPTO").upper()
+        
+        # Determine Country: Look up map, fallback to 'Unknown'
+        country = txn_country_map.get(str(log.txn_id), "Unknown")
         
         # Normalize Decision Source
         source = log.decision_source
@@ -103,7 +125,9 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
             metrics["value_secured"] += amount
             hourly_stats[ts_key]["block_vol"] += amount
             threat_counts[log.primary_threat or "Unknown"] += 1
-            currency_risk[currency] += amount
+            
+            # Map Risk to Country
+            country_risk[country] += amount 
 
             # E. AI Insight
             if source == "AI_AGENT_REVIEW" and decision == "REJECT":
@@ -112,12 +136,12 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
                     highest_ai_confidence = conf
                     ai_save_of_day = log
             
-            # F. Populate Recent Blocks Display (Limit 5)
+            # F. Populate Recent Blocks
             if len(recent_blocks_display) < 5:
                 recent_blocks_display.append({
                     "time_str": log.decision_timestamp.strftime('%H:%M:%S'),
                     "user_code": log.user_code,
-                    "currency": currency, # Used safe variable
+                    "country": country, # Display Country here
                     "source_label": "AI Agent" if "AI" in log.decision_source else "Rule Engine",
                     "primary_threat": log.primary_threat,
                     "decision": log.decision
@@ -150,7 +174,8 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
 
     charts = {
         "threats": { "labels": list(threat_counts.keys()), "data": list(threat_counts.values()) },
-        "currencies": { "labels": list(currency_risk.keys()), "data": list(currency_risk.values()) },
+        # Updated to Countries
+        "countries": { "labels": list(country_risk.keys()), "data": list(country_risk.values()) },
         "volume": {
             "labels": sorted_hours,
             "pass": [hourly_stats[h]["pass_vol"] for h in sorted_hours],
@@ -168,5 +193,5 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         "kpi": kpi,
         "charts": charts,
         "ai_insight": ai_save_of_day,
-        "recent_blocks": recent_blocks_display # Passing the clean list
+        "recent_blocks": recent_blocks_display
     })

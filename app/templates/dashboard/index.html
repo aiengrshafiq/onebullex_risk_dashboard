@@ -107,8 +107,8 @@
     </div>
     <div class="col-md-4">
         <div class="chart-container">
-            <h6 class="text-white mb-3 small text-uppercase">Blocked Exposure by Currency</h6>
-            <canvas id="currencyChart"></canvas>
+            <h6 class="text-white mb-3 small text-uppercase">Blocked Exposure by Country</h6>
+            <canvas id="countryChart"></canvas>
         </div>
     </div>
 </div>
@@ -187,7 +187,6 @@
         </div>
     </div>
 </div>
-</div>
 
 {% endblock %}
 
@@ -246,7 +245,7 @@
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            elements: { point: { radius: 0 } }, // Hide points for cleaner line
+            elements: { point: { radius: 0 } },
             plugins: { tooltip: { mode: 'index', intersect: false } }
         }
     });
@@ -294,16 +293,16 @@
         }
     });
 
-    // 5. CURRENCY EXPOSURE (Horizontal Bar)
-    new Chart(document.getElementById('currencyChart'), {
+    // 5. COUNTRY EXPOSURE (Uses charts.countries from backend)
+    new Chart(document.getElementById('countryChart'), {
         type: 'bar',
         indexAxis: 'y',
         data: {
-            labels: {{ charts.currencies.labels | tojson }},
+            labels: {{ charts.countries.labels | tojson }},
             datasets: [{
                 label: 'Risk Volume ($)',
-                data: {{ charts.currencies.data | tojson }},
-                backgroundColor: '#ff9e00', // Orange for Crypto/Bitcoin vibe
+                data: {{ charts.countries.data | tojson }},
+                backgroundColor: '#ff9e00', // Orange
                 barThickness: 20
             }]
         },

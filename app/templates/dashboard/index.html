@@ -1,52 +1,266 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - OneBullEx{% endblock %}
-{% block page_title %}System Overview{% endblock %}
+{% block title %}Phalanx Console{% endblock %}
+{% block page_title %}Executive Risk Overview{% endblock %}
 
 {% block content %}
-<div class="row g-4">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    :root {
+        --neon-green: #00ff9d;
+        --neon-red: #ff4d4d;
+        --neon-blue: #00d2ff;
+        --neon-orange: #ff9e00;
+        --card-bg: #111;
+        --card-border: #333;
+    }
+    
+    .kpi-card {
+        background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 4px; height: 100%;
+    }
+    .kpi-green::before { background-color: var(--neon-green); }
+    .kpi-red::before { background-color: var(--neon-red); }
+    .kpi-blue::before { background-color: var(--neon-blue); }
+    .kpi-orange::before { background-color: var(--neon-orange); }
+
+    .kpi-value { font-size: 1.8rem; font-weight: 700; color: #fff; margin-bottom: 5px; }
+    .kpi-label { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+    
+    .chart-container {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 15px;
+        height: 320px;
+    }
+    
+    .intel-card {
+        background: #151515;
+        border: 1px solid #444;
+        border-radius: 8px;
+    }
+    
+    .table-dark-custom {
+        --bs-table-bg: transparent;
+        --bs-table-color: #ccc;
+        --bs-table-border-color: #333;
+    }
+</style>
+
+<div class="row g-4 mb-4">
     <div class="col-md-3">
-        <a href="/risk-rules" class="text-decoration-none">
-            <div class="card h-100 hover-card">
-                <div class="card-body d-flex align-items-center">
-                    <div class="bg-primary bg-opacity-10 p-3 rounded text-primary me-3">
-                        <i class="fas fa-gavel fa-2x"></i>
-                    </div>
-                    <div>
-                        <h6 class="text-muted mb-1">Risk Rules</h6>
-                        <h4 class="text-white mb-0">Manage</h4>
-                    </div>
-                </div>
-            </div>
-        </a>
+        <div class="kpi-card kpi-green">
+            <div class="kpi-value">{{ kpi.secured_usd }}</div>
+            <div class="kpi-label"><i class="fas fa-shield-alt me-2"></i>Value Secured (24h)</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card kpi-blue">
+            <div class="kpi-value">{{ kpi.pass_rate }}%</div>
+            <div class="kpi-label"><i class="fas fa-bolt me-2"></i>Auto-Pass Velocity</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card kpi-orange">
+            <div class="kpi-value">{{ kpi.avg_latency }}</div>
+            <div class="kpi-label"><i class="fas fa-microchip me-2"></i>Phalanx Latency</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card kpi-red">
+            <div class="kpi-value">{{ kpi.ai_rate }}%</div>
+            <div class="kpi-label"><i class="fas fa-brain me-2"></i>AI Intervention Rate</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="chart-container">
+            <h6 class="text-white mb-3 small text-uppercase">Primary Threat Landscape</h6>
+            <canvas id="threatChart"></canvas>
+        </div>
     </div>
     
-    <div class="col-md-3">
-        <a href="/blacklist" class="text-decoration-none">
-            <div class="card h-100 hover-card">
-                <div class="card-body d-flex align-items-center">
-                    <div class="bg-danger bg-opacity-10 p-3 rounded text-danger me-3">
-                        <i class="fas fa-ban fa-2x"></i>
-                    </div>
-                    <div>
-                        <h6 class="text-muted mb-1">Blacklist</h6>
-                        <h4 class="text-white mb-0">View List</h4>
-                    </div>
+    <div class="col-md-4">
+        <div class="chart-container">
+            <h6 class="text-white mb-3 small text-uppercase">Flow Volume (Pass vs Block)</h6>
+            <canvas id="volumeChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="chart-container">
+            <h6 class="text-white mb-3 small text-uppercase">Blocked Exposure by Chain</h6>
+            <canvas id="chainChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    
+    <div class="col-md-5">
+        <div class="intel-card h-100 p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="text-white mb-0"><i class="fas fa-robot text-info me-2"></i>AI Save of the Day</h5>
+                <span class="badge bg-info text-dark">Confidence: {{ ai_insight.confidence if ai_insight else 'N/A' }}</span>
+            </div>
+            
+            {% if ai_insight %}
+            <div class="p-3 rounded bg-black border border-secondary mb-3">
+                <div class="row g-2">
+                    <div class="col-6"><small class="text-muted">User ID</small><div class="text-white fw-bold">{{ ai_insight.user_code }}</div></div>
+                    <div class="col-6"><small class="text-muted">Threat</small><div class="text-danger fw-bold">{{ ai_insight.primary_threat }}</div></div>
                 </div>
             </div>
-        </a>
+            <p class="text-light small fst-italic">"{{ ai_insight.narrative }}"</p>
+            <div class="mt-3">
+                <small class="text-muted text-uppercase">LLM Reasoning</small>
+                <div class="text-secondary small mt-1" style="max-height: 80px; overflow-y: auto;">
+                    {{ ai_insight.llm_reasoning }}
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-5">
+                No high-confidence AI rejections recorded today.
+            </div>
+            {% endif %}
+        </div>
     </div>
 
-    </div>
-
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">System Status</div>
-            <div class="card-body text-secondary">
-                <i class="fas fa-check-circle text-success me-2"></i> Hologres Database Connection: <strong>Active</strong>
+    <div class="col-md-7">
+        <div class="card shadow-sm border-secondary h-100 bg-dark">
+            <div class="card-header bg-transparent border-secondary text-white">
+                <i class="fas fa-ban text-danger me-2"></i>Recent High-Value Blocks
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-dark-custom table-hover mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Time</th>
+                                <th>User</th>
+                                <th>Threat</th>
+                                <th>Source</th>
+                                <th class="text-end pe-4">Decision</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_blocks %}
+                            <tr>
+                                <td class="ps-4 small text-muted">{{ log.decision_timestamp.strftime('%H:%M:%S') }}</td>
+                                <td class="fw-bold text-light">{{ log.user_code }}</td>
+                                <td><span class="badge bg-danger bg-opacity-25 text-danger border border-danger">{{ log.primary_threat }}</span></td>
+                                <td class="small">{{ log.decision_source }}</td>
+                                <td class="text-end pe-4">
+                                    <span class="badge bg-danger">REJECT</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // --- CHART CONFIGURATION ---
+    Chart.defaults.color = '#666';
+    Chart.defaults.borderColor = '#333';
+
+    // 1. THREAT LANDSCAPE (DONUT)
+    const ctxThreat = document.getElementById('threatChart').getContext('2d');
+    new Chart(ctxThreat, {
+        type: 'doughnut',
+        data: {
+            labels: {{ charts.threats.labels | tojson }},
+            datasets: [{
+                data: {{ charts.threats.data | tojson }},
+                backgroundColor: ['#ff4d4d', '#ff9e00', '#00d2ff', '#a020f0', '#00ff9d'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right', labels: { color: '#ccc', usePointStyle: true } }
+            }
+        }
+    });
+
+    // 2. VOLUME FLOW (STACKED BAR)
+    const ctxVol = document.getElementById('volumeChart').getContext('2d');
+    new Chart(ctxVol, {
+        type: 'bar',
+        data: {
+            labels: {{ charts.volume.labels | tojson }},
+            datasets: [
+                {
+                    label: 'Blocked ($)',
+                    data: {{ charts.volume.block | tojson }},
+                    backgroundColor: '#ff4d4d',
+                    barThickness: 8
+                },
+                {
+                    label: 'Passed ($)',
+                    data: {{ charts.volume.pass | tojson }},
+                    backgroundColor: '#28a745',
+                    barThickness: 8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { stacked: true, grid: { display: false } },
+                y: { stacked: true, grid: { color: '#222' } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    // 3. CHAIN RISK (HORIZONTAL BAR)
+    const ctxChain = document.getElementById('chainChart').getContext('2d');
+    new Chart(ctxChain, {
+        type: 'bar',
+        indexAxis: 'y',
+        data: {
+            labels: {{ charts.chains.labels | tojson }},
+            datasets: [{
+                label: 'Risk Volume ($)',
+                data: {{ charts.chains.data | tojson }},
+                backgroundColor: '#00d2ff',
+                barThickness: 15
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { grid: { color: '#222' } },
+                y: { grid: { display: false } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+</script>
 {% endblock %}

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
-from app.routers import auth, risk_rules, lists, blacklist, features, decisions
+from app.routers import auth, risk_rules, lists, blacklist, features, decisions, dashboard
 # We will import dashboard router later
 
 app = FastAPI(title="Phalanx Console")
@@ -16,6 +16,7 @@ app.include_router(lists.router)
 app.include_router(blacklist.router)
 app.include_router(features.router)
 app.include_router(decisions.router)
+app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
 
 
 @app.get("/health")
@@ -31,7 +32,7 @@ async def root():
 from fastapi.templating import Jinja2Templates
 templates = Jinja2Templates(directory="app/templates")
 
-@app.get("/dashboard")
-async def dashboard_home(request: Request):
-    # In real app, we check cookie/token here
-    return templates.TemplateResponse("dashboard/index.html", {"request": request})
+# @app.get("/dashboard")
+# async def dashboard_home(request: Request):
+#     # In real app, we check cookie/token here
+#     return templates.TemplateResponse("dashboard/index.html", {"request": request})

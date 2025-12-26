@@ -42,7 +42,7 @@
         border: 1px solid var(--card-border);
         border-radius: 8px;
         padding: 15px;
-        height: 320px; /* Fixed height for consistency */
+        height: 320px;
     }
     
     .intel-card { background: #151515; border: 1px solid #444; border-radius: 8px; }
@@ -195,7 +195,7 @@
     Chart.defaults.color = '#777';
     Chart.defaults.borderColor = '#333';
 
-    // 1. DECISION MIX CHART (Bar Comparison)
+    // 1. DECISION MIX CHART
     new Chart(document.getElementById('decisionMixChart'), {
         type: 'bar',
         data: {
@@ -204,13 +204,13 @@
                 {
                     label: 'Rule Engine',
                     data: {{ charts.decisions.rule | tojson }},
-                    backgroundColor: '#a020f0', // Purple
+                    backgroundColor: '#a020f0',
                     borderRadius: 4
                 },
                 {
                     label: 'AI Agent',
                     data: {{ charts.decisions.ai | tojson }},
-                    backgroundColor: '#00d2ff', // Blue
+                    backgroundColor: '#00d2ff',
                     borderRadius: 4
                 }
             ]
@@ -222,7 +222,7 @@
         }
     });
 
-    // 2. LATENCY TREND CHART (Line)
+    // 2. LATENCY TREND CHART
     new Chart(document.getElementById('latencyTrendChart'), {
         type: 'line',
         data: {
@@ -237,7 +237,7 @@
                 {
                     label: 'AI Latency',
                     data: {{ charts.latency.ai | tojson }},
-                    borderColor: '#ff4d4d', // Red for AI usually slower
+                    borderColor: '#ff4d4d',
                     tension: 0.4
                 }
             ]
@@ -275,7 +275,7 @@
         }
     });
 
-    // 4. THREATS (Donut)
+    // 4. THREATS
     new Chart(document.getElementById('threatChart'), {
         type: 'doughnut',
         data: {
@@ -293,7 +293,7 @@
         }
     });
 
-    // 5. COUNTRY EXPOSURE (Uses charts.countries from backend)
+    // 5. COUNTRY EXPOSURE (Renamed Chart)
     new Chart(document.getElementById('countryChart'), {
         type: 'bar',
         indexAxis: 'y',
@@ -302,7 +302,7 @@
             datasets: [{
                 label: 'Risk Volume ($)',
                 data: {{ charts.countries.data | tojson }},
-                backgroundColor: '#ff9e00', // Orange
+                backgroundColor: '#ff9e00',
                 barThickness: 20
             }]
         },

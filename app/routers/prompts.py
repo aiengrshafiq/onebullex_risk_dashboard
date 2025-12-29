@@ -10,7 +10,13 @@ from sqlalchemy import desc, update
 
 from app.core.database import get_db
 from app.models.risk_tables import AIPrompt
-from app.core.config import settings # Assuming you have this
+from app.core.config import settings
+
+# --- AUTH IMPORT (Adjust based on your actual auth.py file) ---
+# Assuming you have a function that returns the User model from the JWT token
+from app.routers.auth import get_current_user 
+# If your auth system returns a User object, we'll use user.username
+from app.models.users import User
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -23,13 +29,13 @@ class PromptUpdate(BaseModel):
 
 class PromptTest(BaseModel):
     prompt_text: str
-    test_json: str # User pastes a JSON case here
+    test_json: str 
 
 # --- ROUTES ---
 
 @router.get("/")
 async def prompt_manager_ui(request: Request, db: AsyncSession = Depends(get_db)):
-    # Get the latest active prompt for the main key
+    # Get the latest active prompt
     result = await db.execute(
         select(AIPrompt).where(
             AIPrompt.prompt_key == 'RISK_ANALYSIS_MAIN',
@@ -63,11 +69,12 @@ async def test_prompt(payload: PromptTest):
         case_data = json.loads(payload.test_json)
         case_str = json.dumps(case_data, indent=2)
         
-        # 2. Construct Full Prompt
+        # 2. Construct Full Prompt 
+        # (Note: payload.prompt_text comes raw from editor, no """ needed)
         full_text = f"{payload.prompt_text}\n\nCase JSON:\n{case_str}"
         
-        # 3. Call Gemini API (Using standard urllib as you requested)
-        api_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-pro:generateContent?key={settings.GEMINI_API_KEY}"
+        # 3. Call Gemini API
+        api_url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={settings.GEMINI_API_KEY}"
         
         req_body = {"contents": [{"parts": [{"text": full_text}]}]}
         data = json.dumps(req_body).encode("utf-8")
@@ -94,8 +101,14 @@ async def test_prompt(payload: PromptTest):
     except Exception as e:
         return {"status": "error", "reply": str(e)}
 
+
 @router.post("/publish")
-async def publish_prompt(payload: PromptUpdate, db: AsyncSession = Depends(get_db)):
+async def publish_prompt(
+    payload: PromptUpdate, 
+    db: AsyncSession = Depends(get_db),
+    # This will now automatically check the cookie and get the user
+    current_user: User = Depends(get_current_user) 
+):
     # 1. Find current max version
     res = await db.execute(
         select(AIPrompt.version)
@@ -106,22 +119,23 @@ async def publish_prompt(payload: PromptUpdate, db: AsyncSession = Depends(get_d
     curr_version = res.scalars().first() or 0
     new_version = curr_version + 1
 
-    # 2. Deactivate old active prompts for this key
+    # 2. Deactivate old prompts
     await db.execute(
         update(AIPrompt)
         .where(AIPrompt.prompt_key == payload.prompt_key)
         .values(is_active=False)
     )
 
-    # 3. Insert new Active Prompt
+    # 3. Insert new Active Prompt using logged-in username
     new_prompt = AIPrompt(
         prompt_key=payload.prompt_key,
         version=new_version,
         prompt_text=payload.prompt_text,
         is_active=True,
-        change_reason=payload.change_reason
+        change_reason=payload.change_reason,
+        created_by=current_user.username  # <--- DYNAMIC VALUE
     )
     db.add(new_prompt)
     await db.commit()
-    
+
     return {"status": "success", "version": new_version}

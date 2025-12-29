@@ -1,3 +1,5 @@
+from typing import Optional
+from jose import jwt, JWTError
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -7,6 +9,7 @@ from sqlalchemy.future import select
 from app.core.database import get_db
 from app.models.users import User
 from app.core.security import verify_password, get_password_hash, create_access_token
+from app.core.config import settings
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -63,6 +66,8 @@ async def login(
     
     # Set Cookie and Redirect
     response = RedirectResponse(url="/dashboard", status_code=303)
+    # Note: 'Bearer ' prefix is standard but sometimes complicates parsing. 
+    # We will handle stripping it in get_current_user below.
     response.set_cookie(key="access_token", value=f"Bearer {access_token}", httponly=True)
     return response
 
@@ -73,13 +78,11 @@ async def logout():
     response.delete_cookie("access_token")
     return response
 
-
 # ================= USER MANAGEMENT =================
 
 @router.get("/users")
 async def list_users(request: Request, db: AsyncSession = Depends(get_db)):
     """List all registered users."""
-    # Fetch users ordered by creation date
     result = await db.execute(select(User).order_by(User.created_at.desc()))
     users = result.scalars().all()
     
@@ -91,15 +94,47 @@ async def list_users(request: Request, db: AsyncSession = Depends(get_db)):
 @router.delete("/users/{user_id}")
 async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
     """Delete a specific user by ID."""
-    # 1. Find the user
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    # 2. Delete
     await db.delete(user)
     await db.commit()
     
     return {"status": "success", "message": "User deleted"}
+
+# ========================================================
+#  NEW: AUTHENTICATION DEPENDENCY (get_current_user)
+# ========================================================
+async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
+    """
+    Dependency that reads the cookie, decodes JWT, and returns the User object.
+    If not authenticated, raises 401.
+    """
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Remove 'Bearer ' prefix if present
+    if token.startswith("Bearer "):
+        token = token.split(" ")[1]
+
+    try:
+        # Decode JWT
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+    # Fetch User from DB
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalars().first()
+    
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+        
+    return user

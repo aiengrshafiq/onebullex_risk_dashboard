@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Prompt Registry{% endblock %}
+{% block page_title %}AI Prompt Manager{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/markdown/markdown.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+
+<style>
+    /* Force CodeMirror to fit its container and scroll internally */
+    .CodeMirror {
+        height: 100% !important;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    
+    /* Main layout height */
+    .prompt-editor-box, .right-panel-box {
+        height: 75vh;
+        min-height: 600px;
+    }
+
+    /* Right panel split */
+    .half-height {
+        height: 48%;
+    }
+    
+    /* Ensure the card body doesn't overflow */
+    .flex-body-scroll {
+        flex: 1;
+        overflow: hidden; /* This forces CodeMirror to handle the scroll */
+        position: relative;
+    }
+</style>
+
+<div class="row g-3">
+    
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-secondary bg-dark prompt-editor-box d-flex flex-column">
+            
+            <div class="card-header bg-transparent border-secondary d-flex justify-content-between align-items-center" style="flex-shrink: 0;">
+                <h6 class="text-white mb-0"><i class="fas fa-edit me-2"></i>System Prompt Editor</h6>
+                <span class="badge bg-success">Active Version: v{{ active_prompt.version if active_prompt else '0' }}</span>
+            </div>
+            
+            <div class="card-body p-0 flex-body-scroll">
+                <textarea id="promptEditor">{{ active_prompt.prompt_text if active_prompt else '' }}</textarea>
+            </div>
+            
+            <div class="card-footer bg-transparent border-secondary" style="flex-shrink: 0;">
+                <div class="input-group">
+                    <input type="text" class="form-control bg-black text-white border-secondary" id="changeReason" placeholder="Reason for change (e.g. 'Stricter ATO rules')..." autocomplete="off">
+                    <button class="btn btn-primary" onclick="publishPrompt()"><i class="fas fa-save me-2"></i>Publish</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5 d-flex flex-column justify-content-between right-panel-box">
+        
+        <div class="card shadow-sm border-secondary bg-dark half-height d-flex flex-column">
+            <div class="card-header bg-transparent border-secondary text-white d-flex justify-content-between align-items-center" style="flex-shrink: 0;">
+                <span><i class="fas fa-vial me-2"></i>Test Case (JSON)</span>
+                <button class="btn btn-warning btn-sm text-dark fw-bold py-0" onclick="runTest()">
+                    <i class="fas fa-play me-2"></i>Run Test
+                </button>
+            </div>
+            <div class="card-body p-0 flex-body-scroll">
+                <textarea id="jsonEditor">{
+  "features": {
+    "withdrawal_amount": 50000,
+    "is_new_device": true,
+    "withdrawal_ratio": 0.99
+  },
+  "rule_engine": {
+    "initial_decision": "HOLD"
+  }
+}</textarea>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-secondary bg-dark half-height d-flex flex-column">
+            <div class="card-header bg-transparent border-secondary text-white" style="flex-shrink: 0;">
+                <i class="fas fa-robot me-2"></i>LLM Response
+            </div>
+            <div style="max-height: 200px; overflow-y: auto;" class="card-body bg-black p-3 font-monospace text-info small flex-body-scroll" id="testOutputWrapper">
+                <div id="testOutput" style="white-space: pre-wrap;">Ready to test...</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="card shadow-sm border-secondary bg-dark mt-4">
+    <div class="card-header bg-transparent border-secondary text-white">
+        <i class="fas fa-history me-2"></i>Version History
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-dark table-hover mb-0 small">
+            <thead>
+                <tr>
+                    <th class="ps-4">Ver</th>
+                    <th>Reason</th>
+                    <th>Created At</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in history %}
+                <tr>
+                    <td class="ps-4">v{{ row.version }}</td>
+                    <td>{{ row.change_reason }}</td>
+                    <td class="text-muted">{{ row.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        {% if row.is_active %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="text-muted">Inactive</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 1. Initialize CodeMirror for Prompt
+    var promptCM = CodeMirror.fromTextArea(document.getElementById("promptEditor"), {
+        mode: "markdown",
+        theme: "dracula",
+        lineNumbers: true,
+        lineWrapping: true
+    });
+    // Height is handled by CSS .CodeMirror { height: 100% }
+
+    // 2. Initialize CodeMirror for JSON
+    var jsonCM = CodeMirror.fromTextArea(document.getElementById("jsonEditor"), {
+        mode: "javascript",
+        theme: "dracula",
+        lineNumbers: true
+    });
+
+    // --- ACTIONS ---
+
+    function runTest() {
+        const btn = document.querySelector('.btn-warning');
+        const output = document.getElementById('testOutput');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Running...';
+        output.textContent = "Waiting for AI response...";
+        output.className = ""; // Reset colors
+        output.style.color = "#0dcaf0"; // Info cyan
+
+        const payload = {
+            prompt_text: promptCM.getValue(),
+            test_json: jsonCM.getValue()
+        };
+
+        $.ajax({
+            url: "/prompts/test",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(payload),
+            success: function(res) {
+                if(res.status === 'success') {
+                    output.textContent = res.reply;
+                    output.style.color = "#00ff9d"; // Success green
+                } else {
+                    output.textContent = "Error: " + res.reply;
+                    output.style.color = "#ff4d4d"; // Error red
+                }
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play me-2"></i>Run Test';
+            },
+            error: function(xhr) {
+                output.textContent = "Server Error: " + xhr.responseText;
+                output.style.color = "#ff4d4d";
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play me-2"></i>Run Test';
+            }
+        });
+    }
+
+    function publishPrompt() {
+        const reason = document.getElementById('changeReason').value;
+        if(!reason) { alert("Please enter a change reason."); return; }
+        
+        if(!confirm("Are you sure you want to publish this prompt to Production?")) return;
+
+        const payload = {
+            prompt_key: "RISK_ANALYSIS_MAIN",
+            prompt_text: promptCM.getValue(),
+            change_reason: reason
+        };
+
+        $.ajax({
+            url: "/prompts/publish",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(payload),
+            success: function(res) {
+                alert("Published Version " + res.version + " successfully!");
+                location.reload();
+            },
+            error: function(xhr) {
+                alert("Error publishing: " + xhr.responseText);
+            }
+        });
+    }
+</script>
+{% endblock %}

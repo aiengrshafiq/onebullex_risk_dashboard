@@ -188,3 +188,17 @@ class UserDevice(Base):
     event_id = Column(BigInteger)  # This maps to txn_id
     country = Column(String)
     country_code = Column(String)
+
+
+class AIPrompt(Base):
+    __tablename__ = "ai_prompts"
+    __table_args__ = {"schema": "rt"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    prompt_key = Column(String, index=True)
+    version = Column(Integer)
+    prompt_text = Column(Text)
+    is_active = Column(Boolean, default=False)
+    change_reason = Column(String, nullable=True)
+    created_by = Column(String, default="admin")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
-from app.routers import auth, risk_rules, lists, blacklist, features, decisions, dashboard
+from app.routers import auth, risk_rules, lists, blacklist, features, decisions, dashboard,prompts
 # We will import dashboard router later
 
 app = FastAPI(title="Phalanx Console")
@@ -17,6 +17,7 @@ app.include_router(blacklist.router)
 app.include_router(features.router)
 app.include_router(decisions.router)
 app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+app.include_router(prompts.router, prefix="/prompts", tags=["Prompts"])
 
 
 @app.get("/health")

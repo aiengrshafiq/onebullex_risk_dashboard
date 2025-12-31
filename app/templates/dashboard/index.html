@@ -14,6 +14,8 @@
         --neon-purple: #a020f0;
         --card-bg: #111;
         --card-border: #333;
+        --trend-up: #00ff9d;
+        --trend-down: #ff4d4d;
     }
     
     .kpi-card {
@@ -24,15 +26,26 @@
         position: relative;
         overflow: hidden;
     }
-    
     .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
     .kpi-green::before { background-color: var(--neon-green); }
-    .kpi-red::before { background-color: var(--neon-red); }
     .kpi-blue::before { background-color: var(--neon-blue); }
     .kpi-purple::before { background-color: var(--neon-purple); }
+    .kpi-red::before { background-color: var(--neon-red); }
+
     .kpi-value { font-size: 1.8rem; font-weight: 700; color: #fff; margin-bottom: 5px; }
-    .kpi-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+    .kpi-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #888; display: flex; justify-content: space-between; align-items: center;}
     
+    .trend-badge {
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: rgba(255,255,255,0.1);
+    }
+    .trend-up { color: var(--trend-up); }
+    .trend-down { color: var(--trend-down); }
+    .trend-neutral { color: #888; }
+
     .chart-container {
         background: var(--card-bg);
         border: 1px solid var(--card-border);
@@ -42,46 +55,69 @@
     }
     
     .intel-card { background: #151515; border: 1px solid #444; border-radius: 8px; }
-    
     .table-dark-custom { --bs-table-bg: transparent; --bs-table-color: #ccc; --bs-table-border-color: #333; }
 </style>
+
 <div class="row g-4 mb-4">
     <div class="col-md-3">
-        <div class="kpi-card kpi-green" style="padding-right: 13px !important; padding-left: 13px !important;">
-            <div class="kpi-value">{{ kpi.secured_usd }}</div>
-            <div class="kpi-label d-flex align-items-center">
-                <i class="fas fa-shield-alt me-2"></i>
-                Value Secured
-                <span class="badge bg-white text-dark ms-2 bg-opacity-75" style="font-size: 0.8em; font-weight: 800;">
-                    {{ kpi.secured_count }} Txns
+        <div class="kpi-card kpi-green" style="
+    padding-right: 13px !important;
+    padding-left: 13px !important;
+">
+            <div class="kpi-value">{{ kpi.value_secured }}</div>
+            <div class="kpi-label">
+                <span><i class="fas fa-coins me-2"></i>Value Secured*</span>
+                <span class="trend-badge {{ 'trend-up' if kpi.value_trend >= 0 else 'trend-down' }}">
+                    <i class="fas fa-{{ 'arrow-up' if kpi.value_trend >= 0 else 'arrow-down' }}"></i> {{ kpi.value_trend | abs }}%
+                </span>
+            </div>
+            <!-- <div class="text-muted small mt-1" style="font-size: 0.7em;">*Total Volume Processed</div> -->
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="kpi-card kpi-blue">
+            <div class="kpi-value">{{ kpi.txn_count }}</div>
+            <div class="kpi-label">
+                <span><i class="fas fa-list-ol me-2"></i>Total Txns</span>
+                <span class="trend-badge {{ 'trend-up' if kpi.txn_trend >= 0 else 'trend-down' }}">
+                    <i class="fas fa-{{ 'arrow-up' if kpi.txn_trend >= 0 else 'arrow-down' }}"></i> {{ kpi.txn_trend | abs }}%
                 </span>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="kpi-card kpi-blue">
-            <div class="kpi-value">{{ kpi.pass_rate }}%</div>
-            <div class="kpi-label"><i class="fas fa-bolt me-2"></i>Global Pass Rate</div>
-        </div>
-    </div>
+
     <div class="col-md-3">
         <div class="kpi-card kpi-purple">
-            <div class="kpi-value">{{ kpi.avg_rule_lat }}</div>
-            <div class="kpi-label"><i class="fas fa-cogs me-2"></i>Rule Latency</div>
+            <div class="kpi-value">{{ kpi.pass_rate }}%</div>
+            <div class="kpi-label">
+                <span><i class="fas fa-check-circle me-2"></i>Pass Rate</span>
+                <span class="trend-badge trend-neutral">
+                    {{ '+' if kpi.pass_trend >= 0 else '' }}{{ kpi.pass_trend }}%
+                </span>
+            </div>
         </div>
     </div>
+
     <div class="col-md-3">
         <div class="kpi-card kpi-red">
-            <div class="kpi-value">{{ kpi.avg_ai_lat }}</div>
-            <div class="kpi-label"><i class="fas fa-robot me-2"></i>AI Agent Latency</div>
+            <div class="kpi-value">{{ kpi.avg_rule_lat }}</div>
+            <div class="kpi-label">
+                <span><i class="fas fa-stopwatch me-2"></i>Rule Latency</span>
+                <span class="badge bg-dark border border-secondary text-secondary">AI: {{ kpi.avg_ai_lat }}</span>
+            </div>
         </div>
     </div>
 </div>
+
 <div class="row g-4 mb-4">
     <div class="col-md-6">
         <div class="chart-container">
-            <h6 class="text-white mb-3 small text-uppercase">Decision Distribution (Rule vs AI)</h6>
-            <canvas id="decisionMixChart"></canvas>
+            <h6 class="text-white mb-3 small text-uppercase">
+                Decision Trend (Last 24h vs Previous)
+                <span class="float-end text-muted small" style="text-transform: none;">Comparing periods</span>
+            </h6>
+            <canvas id="decisionTrendChart"></canvas>
         </div>
     </div>
     <div class="col-md-6">
@@ -91,6 +127,7 @@
         </div>
     </div>
 </div>
+
 <div class="row g-4 mb-4">
     <div class="col-md-4">
         <div class="chart-container">
@@ -111,6 +148,7 @@
         </div>
     </div>
 </div>
+
 <div class="row g-4">
     <div class="col-md-5">
         <div class="intel-card h-100 p-4">
@@ -185,36 +223,44 @@
     </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script>
     Chart.defaults.color = '#777';
     Chart.defaults.borderColor = '#333';
-    // 1. DECISION MIX CHART
-    new Chart(document.getElementById('decisionMixChart'), {
+
+    // 1. COMPARATIVE DECISION TREND CHART (New Request)
+    new Chart(document.getElementById('decisionTrendChart'), {
         type: 'bar',
         data: {
-            labels: ['PASS', 'HOLD', 'REJECT'],
+            labels: {{ charts.decisions.labels | tojson }},
             datasets: [
                 {
-                    label: 'Rule Engine',
-                    data: {{ charts.decisions.rule | tojson }},
-                    backgroundColor: '#a020f0',
-                    borderRadius: 4
+                    label: 'Current 24h',
+                    data: {{ charts.decisions.current | tojson }},
+                    backgroundColor: '#00ff9d', // Neon Green for Current
+                    borderRadius: 4,
+                    barPercentage: 0.6
                 },
                 {
-                    label: 'AI Agent',
-                    data: {{ charts.decisions.ai | tojson }},
-                    backgroundColor: '#00d2ff',
-                    borderRadius: 4
+                    label: 'Previous 24h',
+                    data: {{ charts.decisions.previous | tojson }},
+                    backgroundColor: '#444', // Dark Grey for history
+                    borderRadius: 4,
+                    barPercentage: 0.6
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true } }
+            scales: { y: { beginAtZero: true, grid: { color: '#222' } } },
+            plugins: { 
+                legend: { labels: { color: '#ccc' } }
+            }
         }
     });
+
     // 2. LATENCY TREND CHART
     new Chart(document.getElementById('latencyTrendChart'), {
         type: 'line',
@@ -242,6 +288,7 @@
             plugins: { tooltip: { mode: 'index', intersect: false } }
         }
     });
+
     // 3. VOLUME CHART
     new Chart(document.getElementById('volumeChart'), {
         type: 'bar',
@@ -256,7 +303,7 @@
                 {
                     label: 'Passed ($)',
                     data: {{ charts.volume.pass | tojson }},
-                    backgroundColor: '#00ff9d'
+                    backgroundColor: '#00d2ff'
                 }
             ]
         },
@@ -266,6 +313,7 @@
             scales: { x: { stacked: true }, y: { stacked: true } }
         }
     });
+
     // 4. THREATS
     new Chart(document.getElementById('threatChart'), {
         type: 'doughnut',
@@ -283,7 +331,8 @@
             plugins: { legend: { position: 'right' } }
         }
     });
-    // 5. COUNTRY EXPOSURE (Renamed Chart)
+
+    // 5. COUNTRY EXPOSURE
     new Chart(document.getElementById('countryChart'), {
         type: 'bar',
         indexAxis: 'y',

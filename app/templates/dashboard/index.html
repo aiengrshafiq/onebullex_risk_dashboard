@@ -36,8 +36,7 @@
     .kpi-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #888; display: flex; justify-content: space-between; align-items: center;}
     
     .trend-badge {
-        font-size: 0.75rem;
-        font-weight: 700;
+        font-size: 0.75rem; font-weight: 700;
         padding: 2px 6px;
         border-radius: 4px;
         background: rgba(255,255,255,0.1);
@@ -60,18 +59,17 @@
 
 <div class="row g-4 mb-4">
     <div class="col-md-3">
-        <div class="kpi-card kpi-green" style="
-    padding-right: 13px !important;
-    padding-left: 13px !important;
-">
+        <div class="kpi-card kpi-green">
             <div class="kpi-value">{{ kpi.value_secured }}</div>
             <div class="kpi-label">
-                <span><i class="fas fa-coins me-2"></i>Value Secured*</span>
+                <span><i class="fas fa-coins me-2"></i>Volume Monitored</span>
                 <span class="trend-badge {{ 'trend-up' if kpi.value_trend >= 0 else 'trend-down' }}">
                     <i class="fas fa-{{ 'arrow-up' if kpi.value_trend >= 0 else 'arrow-down' }}"></i> {{ kpi.value_trend | abs }}%
                 </span>
             </div>
-            <!-- <div class="text-muted small mt-1" style="font-size: 0.7em;">*Total Volume Processed</div> -->
+            <div class="text-muted small mt-1" style="font-size: 0.7em;">
+                Processing <strong>{{ kpi.txn_count }}</strong> Transactions
+            </div>
         </div>
     </div>
 
@@ -115,7 +113,6 @@
         <div class="chart-container">
             <h6 class="text-white mb-3 small text-uppercase">
                 Decision Trend (Last 24h vs Previous)
-                <span class="float-end text-muted small" style="text-transform: none;">Comparing periods</span>
             </h6>
             <canvas id="decisionTrendChart"></canvas>
         </div>
@@ -135,12 +132,17 @@
             <canvas id="volumeChart"></canvas>
         </div>
     </div>
+    
     <div class="col-md-4">
         <div class="chart-container">
-            <h6 class="text-white mb-3 small text-uppercase">Primary Threat Types</h6>
-            <canvas id="threatChart"></canvas>
+            <h6 class="text-white mb-3 small text-uppercase">
+                AI vs Rule Performance
+                <span class="float-end badge bg-secondary bg-opacity-25 text-info" style="font-size:0.7em">Current 24h</span>
+            </h6>
+            <canvas id="sourceDistributionChart"></canvas>
         </div>
     </div>
+    
     <div class="col-md-4">
         <div class="chart-container">
             <h6 class="text-white mb-3 small text-uppercase">Blocked Exposure by Country</h6>
@@ -229,39 +231,34 @@
     Chart.defaults.color = '#777';
     Chart.defaults.borderColor = '#333';
 
-    // 1. COMPARATIVE DECISION TREND CHART (New Request)
+    // 1. COMPARATIVE DECISION TREND (Total Curr vs Prev)
     new Chart(document.getElementById('decisionTrendChart'), {
         type: 'bar',
         data: {
-            labels: {{ charts.decisions.labels | tojson }},
+            labels: {{ charts.decisions_trend.labels | tojson }},
             datasets: [
                 {
                     label: 'Current 24h',
-                    data: {{ charts.decisions.current | tojson }},
-                    backgroundColor: '#00ff9d', // Neon Green for Current
-                    borderRadius: 4,
-                    barPercentage: 0.6
+                    data: {{ charts.decisions_trend.current | tojson }},
+                    backgroundColor: '#00ff9d', 
+                    borderRadius: 4, barPercentage: 0.6
                 },
                 {
                     label: 'Previous 24h',
-                    data: {{ charts.decisions.previous | tojson }},
-                    backgroundColor: '#444', // Dark Grey for history
-                    borderRadius: 4,
-                    barPercentage: 0.6
+                    data: {{ charts.decisions_trend.previous | tojson }},
+                    backgroundColor: '#444', 
+                    borderRadius: 4, barPercentage: 0.6
                 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             scales: { y: { beginAtZero: true, grid: { color: '#222' } } },
-            plugins: { 
-                legend: { labels: { color: '#ccc' } }
-            }
+            plugins: { legend: { labels: { color: '#ccc' } } }
         }
     });
 
-    // 2. LATENCY TREND CHART
+    // 2. LATENCY (Line)
     new Chart(document.getElementById('latencyTrendChart'), {
         type: 'line',
         data: {
@@ -270,26 +267,23 @@
                 {
                     label: 'Rule Latency',
                     data: {{ charts.latency.rule | tojson }},
-                    borderColor: '#a020f0',
-                    tension: 0.4
+                    borderColor: '#a020f0', tension: 0.4
                 },
                 {
                     label: 'AI Latency',
                     data: {{ charts.latency.ai | tojson }},
-                    borderColor: '#ff4d4d',
-                    tension: 0.4
+                    borderColor: '#ff4d4d', tension: 0.4
                 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             elements: { point: { radius: 0 } },
             plugins: { tooltip: { mode: 'index', intersect: false } }
         }
     });
 
-    // 3. VOLUME CHART
+    // 3. VOLUME (Stacked Bar)
     new Chart(document.getElementById('volumeChart'), {
         type: 'bar',
         data: {
@@ -303,36 +297,44 @@
                 {
                     label: 'Passed ($)',
                     data: {{ charts.volume.pass | tojson }},
-                    backgroundColor: '#00d2ff'
+                    backgroundColor: '#00ff9d'
                 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             scales: { x: { stacked: true }, y: { stacked: true } }
         }
     });
 
-    // 4. THREATS
-    new Chart(document.getElementById('threatChart'), {
-        type: 'doughnut',
+    // 4. NEW: SOURCE DISTRIBUTION (Rule vs AI - Grouped Bar)
+    new Chart(document.getElementById('sourceDistributionChart'), {
+        type: 'bar',
         data: {
-            labels: {{ charts.threats.labels | tojson }},
-            datasets: [{
-                data: {{ charts.threats.data | tojson }},
-                backgroundColor: ['#ff4d4d', '#ff9e00', '#00d2ff', '#a020f0', '#ffffff'],
-                borderWidth: 0
-            }]
+            labels: {{ charts.source_dist.labels | tojson }},
+            datasets: [
+                {
+                    label: 'Rule Engine',
+                    data: {{ charts.source_dist.rule | tojson }},
+                    backgroundColor: '#a020f0', // Purple
+                    borderRadius: 4
+                },
+                {
+                    label: 'AI Agent',
+                    data: {{ charts.source_dist.ai | tojson }},
+                    backgroundColor: '#00d2ff', // Blue
+                    borderRadius: 4
+                }
+            ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'right' } }
+            responsive: true, maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true } },
+            plugins: { legend: { display: true } }
         }
     });
 
-    // 5. COUNTRY EXPOSURE
+    // 5. COUNTRY (Horizontal Bar)
     new Chart(document.getElementById('countryChart'), {
         type: 'bar',
         indexAxis: 'y',
@@ -346,8 +348,7 @@
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false } }
         }
     });

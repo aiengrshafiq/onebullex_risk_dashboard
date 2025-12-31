@@ -12,17 +12,16 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 def calculate_delta(current, previous):
-    """Helper to calculate percentage change safely."""
     if previous == 0:
         return 100.0 if current > 0 else 0.0
     return round(((current - previous) / previous) * 100, 1)
 
 @router.get("/")
 async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
-    # 1. TIME FILTER: Fetch Last 48 Hours to enable Trend Analysis
+    # 1. TIME FILTER: Fetch Last 48 Hours
     now_utc = datetime.now(timezone.utc)
     cutoff_time = now_utc - timedelta(hours=48)
-    midpoint_time = now_utc - timedelta(hours=24) # The split point between Current and Prev
+    midpoint_time = now_utc - timedelta(hours=24)
     
     result = await db.execute(
         select(RiskWithdrawDecision)
@@ -31,7 +30,7 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
     )
     logs = result.scalars().all()
 
-    # --- 2. FETCH COUNTRIES (Batch Fetch) ---
+    # --- 2. FETCH COUNTRIES ---
     txn_ids = []
     for log in logs:
         if log.txn_id and str(log.txn_id).isdigit():
@@ -48,11 +47,10 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
             if row[1]:
                 txn_country_map[str(row[0])] = row[1]
 
-    # --- 3. DEDUPLICATION (Last Write Wins) ---
-    unique_txns = {} 
+    # --- 3. PROCESSING ---
+    unique_txns = {}
     
-    # We still need raw logs for Latency calculation (Operational Metric)
-    # But we limit latency calc to the CURRENT 24h to represent current system health
+    # Operational Metrics (Latency) - Current 24h only
     metrics_latency = {"rule_sum": 0, "rule_count": 0, "ai_sum": 0, "ai_count": 0}
     hourly_latency = defaultdict(lambda: {"rule": [], "ai": []})
     
@@ -60,13 +58,12 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
     highest_ai_confidence = 0.0
 
     for log in logs:
-        # Standardize Timezone
         if log.decision_timestamp.tzinfo:
             ts_utc = log.decision_timestamp.astimezone(timezone.utc)
         else:
             ts_utc = log.decision_timestamp.replace(tzinfo=timezone.utc)
 
-        # A. Operational Stats (Latency) - ONLY for Current 24h
+        # Operational Stats (Latency)
         if ts_utc >= midpoint_time:
             source = "AI_AGENT_REVIEW" if "AI" in (log.decision_source or "") else "RULE_ENGINE_RULES"
             ts_key = ts_utc.strftime("%d %H:00")
@@ -81,17 +78,16 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
                 metrics_latency["ai_count"] += 1
                 hourly_latency[ts_key]["ai"].append(lat)
 
-            # AI Insight Logic (Current 24h only)
             if source == "AI_AGENT_REVIEW" and log.decision == "REJECT":
                 conf = float(log.confidence or 0)
                 if conf > highest_ai_confidence:
                     highest_ai_confidence = conf
                     ai_save_of_day = log
 
-        # B. Build Unique Map
+        # Deduplication Map
         if log.txn_id:
             curr = unique_txns.get(log.txn_id)
-            log_ts = ts_utc # Use the standardized one
+            log_ts = ts_utc
             if curr:
                 curr_ts = curr.decision_timestamp.astimezone(timezone.utc) if curr.decision_timestamp.tzinfo else curr.decision_timestamp.replace(tzinfo=timezone.utc)
                 if log_ts > curr_ts:
@@ -99,16 +95,18 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
             else:
                 unique_txns[log.txn_id] = log
 
-    # --- 4. BUSINESS METRICS (Split Current vs Previous) ---
-    
-    # Structure to hold aggregated data
+    # --- 4. BUSINESS METRICS ---
     stats = {
         "curr": {"volume": 0.0, "count": 0, "pass": 0, "reject": 0, "hold": 0},
         "prev": {"volume": 0.0, "count": 0, "pass": 0, "reject": 0, "hold": 0}
     }
     
-    # Specific containers for Current 24h Charts
-    threat_counts = Counter()
+    # Breakdown for "Rule vs AI" chart (Current 24h)
+    source_stats = {
+        "RULE": {"PASS": 0, "HOLD": 0, "REJECT": 0},
+        "AI":   {"PASS": 0, "HOLD": 0, "REJECT": 0}
+    }
+    
     country_risk = defaultdict(float)
     hourly_vol = defaultdict(lambda: {"pass": 0.0, "block": 0.0})
     recent_blocks_display = []
@@ -116,13 +114,11 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
     sorted_unique = sorted(unique_txns.values(), key=lambda x: x.decision_timestamp, reverse=True)
 
     for log in sorted_unique:
-        # Standardize Time
         if log.decision_timestamp.tzinfo:
             ts_utc = log.decision_timestamp.astimezone(timezone.utc)
         else:
             ts_utc = log.decision_timestamp.replace(tzinfo=timezone.utc)
             
-        # Parse Data
         data = {}
         try:
             if isinstance(log.features_snapshot, str): data = json.loads(log.features_snapshot)
@@ -133,6 +129,9 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         currency = data.get("withdraw_currency", "CRYPTO").upper()
         country = txn_country_map.get(str(log.txn_id), "Unknown")
         decision = (log.decision or "UNKNOWN").upper()
+        
+        # Determine Source cleanly
+        src_key = "AI" if "AI" in (log.decision_source or "") else "RULE"
 
         # --- PERIOD ROUTING ---
         if ts_utc >= midpoint_time:
@@ -140,17 +139,20 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
             bucket = "curr"
             ts_key = ts_utc.strftime("%d %H:00")
             
-            # Chart Data (Current Only)
+            # Populate Source Stats (For the new chart)
+            if decision in source_stats[src_key]:
+                source_stats[src_key][decision] += 1
+
+            # Populate Hourly Volume
             if decision == "PASS":
                 hourly_vol[ts_key]["pass"] += amount
             else:
                 hourly_vol[ts_key]["block"] += amount
-                threat_counts[log.primary_threat or "Unknown"] += 1
                 country_risk[country] += amount
                 
-                # Recent Table
+                # Recent Table (Keep only blocked for attention)
                 if len(recent_blocks_display) < 5:
-                    src_label = "AI Agent" if "AI" in (log.decision_source or "") else "Rule Engine"
+                    src_label = "AI Agent" if src_key == "AI" else "Rule Engine"
                     recent_blocks_display.append({
                         "time_str": ts_utc.strftime('%H:%M:%S'),
                         "user_code": log.user_code,
@@ -163,7 +165,7 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
             # PREVIOUS 24H
             bucket = "prev"
 
-        # --- AGGREGATES ---
+        # --- GLOBAL AGGREGATES (New Logic: Count EVERYTHING) ---
         stats[bucket]["volume"] += amount
         stats[bucket]["count"] += 1
         
@@ -171,30 +173,27 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         elif decision == "REJECT": stats[bucket]["reject"] += 1
         elif decision == "HOLD": stats[bucket]["hold"] += 1
 
-    # --- 5. FINAL CALCULATIONS & TRENDS ---
+    # --- 5. CALCULATIONS ---
     
-    # KPI 1: Value Secured (Total Volume as requested)
+    # KPI 1: Volume Monitored (ALL Txns)
     vol_curr = stats["curr"]["volume"]
-    vol_prev = stats["prev"]["volume"]
-    vol_trend = calculate_delta(vol_curr, vol_prev)
+    vol_trend = calculate_delta(vol_curr, stats["prev"]["volume"])
     
-    # KPI 2: Transaction Count
+    # KPI 2: Transaction Count (ALL Txns)
     cnt_curr = stats["curr"]["count"]
-    cnt_prev = stats["prev"]["count"]
-    cnt_trend = calculate_delta(cnt_curr, cnt_prev)
+    cnt_trend = calculate_delta(cnt_curr, stats["prev"]["count"])
 
     # KPI 3: Pass Rate
     pass_rate_curr = round((stats["curr"]["pass"] / cnt_curr * 100), 1) if cnt_curr else 0.0
-    pass_rate_prev = round((stats["prev"]["pass"] / cnt_prev * 100), 1) if cnt_prev else 0.0
-    pass_rate_trend = round(pass_rate_curr - pass_rate_prev, 1) # Absolute % diff for rates
+    pass_rate_prev = round((stats["prev"]["pass"] / stats["prev"]["count"] * 100), 1) if stats["prev"]["count"] else 0.0
+    pass_rate_trend = round(pass_rate_curr - pass_rate_prev, 1)
 
-    # Latency Averages (Current 24h)
+    # Latency
     avg_rule = int(metrics_latency["rule_sum"] / metrics_latency["rule_count"]) if metrics_latency["rule_count"] else 0
     avg_ai = int(metrics_latency["ai_sum"] / metrics_latency["ai_count"]) if metrics_latency["ai_count"] else 0
 
-    # KPI Object
     kpi = {
-        "value_secured": f"${vol_curr:,.2f}", # Showing Total Volume now
+        "value_secured": f"${vol_curr:,.2f}",
         "value_trend": vol_trend,
         "txn_count": cnt_curr,
         "txn_trend": cnt_trend,
@@ -204,16 +203,21 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         "avg_ai_lat": f"{avg_ai}ms"
     }
 
-    # --- CHARTS ---
-    
-    # 1. Comparative Decision Distribution
-    decision_chart_data = {
+    # Chart 1: Global Decision Trend (Comparison)
+    decision_trend_data = {
         "labels": ["PASS", "HOLD", "REJECT"],
         "current": [stats["curr"]["pass"], stats["curr"]["hold"], stats["curr"]["reject"]],
         "previous": [stats["prev"]["pass"], stats["prev"]["hold"], stats["prev"]["reject"]]
     }
+    
+    # Chart 2: Source Distribution (Rule vs AI) - REPLACES THREATS
+    source_distribution_data = {
+        "labels": ["PASS", "HOLD", "REJECT"],
+        "rule": [source_stats["RULE"]["PASS"], source_stats["RULE"]["HOLD"], source_stats["RULE"]["REJECT"]],
+        "ai":   [source_stats["AI"]["PASS"],   source_stats["AI"]["HOLD"],   source_stats["AI"]["REJECT"]]
+    }
 
-    # 2. Time Series (Latency & Volume - Current 24h)
+    # Other Charts
     all_hours = sorted(set(hourly_latency.keys()) | set(hourly_vol.keys()))
     chart_rule_lat, chart_ai_lat, chart_vol_pass, chart_vol_block = [], [], [], []
     
@@ -226,11 +230,11 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         chart_vol_block.append(vols["block"])
 
     charts = {
-        "threats": { "labels": list(threat_counts.keys()), "data": list(threat_counts.values()) },
         "countries": { "labels": list(country_risk.keys()), "data": list(country_risk.values()) },
         "volume": { "labels": all_hours, "pass": chart_vol_pass, "block": chart_vol_block },
         "latency": { "labels": all_hours, "rule": chart_rule_lat, "ai": chart_ai_lat },
-        "decisions": decision_chart_data # New structure
+        "decisions_trend": decision_trend_data,
+        "source_dist": source_distribution_data # New Dataset
     }
 
     return templates.TemplateResponse("dashboard/index.html", {

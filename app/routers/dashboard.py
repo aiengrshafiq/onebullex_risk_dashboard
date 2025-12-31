@@ -12,16 +12,17 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 def calculate_delta(current, previous):
+    """Calculates percentage change safely handling zero division."""
     if previous == 0:
         return 100.0 if current > 0 else 0.0
     return round(((current - previous) / previous) * 100, 1)
 
 @router.get("/")
 async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
-    # 1. TIME FILTER: Fetch Last 48 Hours
+    # 1. TIME FILTER: Fetch Last 48 Hours (UTC)
     now_utc = datetime.now(timezone.utc)
     cutoff_time = now_utc - timedelta(hours=48)
-    midpoint_time = now_utc - timedelta(hours=24)
+    midpoint_time = now_utc - timedelta(hours=24) # The split point
     
     result = await db.execute(
         select(RiskWithdrawDecision)
@@ -30,7 +31,7 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
     )
     logs = result.scalars().all()
 
-    # --- 2. FETCH COUNTRIES ---
+    # --- 2. FETCH COUNTRIES (Batch Optimization) ---
     txn_ids = []
     for log in logs:
         if log.txn_id and str(log.txn_id).isdigit():
@@ -47,10 +48,11 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
             if row[1]:
                 txn_country_map[str(row[0])] = row[1]
 
-    # --- 3. PROCESSING ---
-    unique_txns = {}
+    # --- 3. DEDUPLICATION & METRIC BUCKETING ---
+    unique_txns = {} 
     
-    # Operational Metrics (Latency) - Current 24h only
+    # Operational Metrics (Latency is calculated on raw logs for system health)
+    # We restrict latency calc to Current 24h only
     metrics_latency = {"rule_sum": 0, "rule_count": 0, "ai_sum": 0, "ai_count": 0}
     hourly_latency = defaultdict(lambda: {"rule": [], "ai": []})
     
@@ -58,12 +60,13 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
     highest_ai_confidence = 0.0
 
     for log in logs:
+        # Standardize Timezone
         if log.decision_timestamp.tzinfo:
             ts_utc = log.decision_timestamp.astimezone(timezone.utc)
         else:
             ts_utc = log.decision_timestamp.replace(tzinfo=timezone.utc)
 
-        # Operational Stats (Latency)
+        # A. Operational Stats (Latency) - Current 24h
         if ts_utc >= midpoint_time:
             source = "AI_AGENT_REVIEW" if "AI" in (log.decision_source or "") else "RULE_ENGINE_RULES"
             ts_key = ts_utc.strftime("%d %H:00")
@@ -78,13 +81,14 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
                 metrics_latency["ai_count"] += 1
                 hourly_latency[ts_key]["ai"].append(lat)
 
+            # AI Insight Logic (Current 24h only)
             if source == "AI_AGENT_REVIEW" and log.decision == "REJECT":
                 conf = float(log.confidence or 0)
                 if conf > highest_ai_confidence:
                     highest_ai_confidence = conf
                     ai_save_of_day = log
 
-        # Deduplication Map
+        # B. Build Unique Map (Last Write Wins Logic)
         if log.txn_id:
             curr = unique_txns.get(log.txn_id)
             log_ts = ts_utc
@@ -95,13 +99,13 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
             else:
                 unique_txns[log.txn_id] = log
 
-    # --- 4. BUSINESS METRICS ---
+    # --- 4. BUSINESS METRICS AGGREGATION ---
     stats = {
         "curr": {"volume": 0.0, "count": 0, "pass": 0, "reject": 0, "hold": 0},
         "prev": {"volume": 0.0, "count": 0, "pass": 0, "reject": 0, "hold": 0}
     }
     
-    # Breakdown for "Rule vs AI" chart (Current 24h)
+    # Specific containers for Current 24h Charts
     source_stats = {
         "RULE": {"PASS": 0, "HOLD": 0, "REJECT": 0},
         "AI":   {"PASS": 0, "HOLD": 0, "REJECT": 0}
@@ -111,6 +115,7 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
     hourly_vol = defaultdict(lambda: {"pass": 0.0, "block": 0.0})
     recent_blocks_display = []
 
+    # Sort strictly by time for charts
     sorted_unique = sorted(unique_txns.values(), key=lambda x: x.decision_timestamp, reverse=True)
 
     for log in sorted_unique:
@@ -130,7 +135,6 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         country = txn_country_map.get(str(log.txn_id), "Unknown")
         decision = (log.decision or "UNKNOWN").upper()
         
-        # Determine Source cleanly
         src_key = "AI" if "AI" in (log.decision_source or "") else "RULE"
 
         # --- PERIOD ROUTING ---
@@ -139,18 +143,18 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
             bucket = "curr"
             ts_key = ts_utc.strftime("%d %H:00")
             
-            # Populate Source Stats (For the new chart)
+            # Chart: AI vs Rule Distribution
             if decision in source_stats[src_key]:
                 source_stats[src_key][decision] += 1
 
-            # Populate Hourly Volume
+            # Chart: Volume Flow
             if decision == "PASS":
                 hourly_vol[ts_key]["pass"] += amount
             else:
                 hourly_vol[ts_key]["block"] += amount
                 country_risk[country] += amount
                 
-                # Recent Table (Keep only blocked for attention)
+                # Table: Recent Blocks (Only showing blocked/held for attention)
                 if len(recent_blocks_display) < 5:
                     src_label = "AI Agent" if src_key == "AI" else "Rule Engine"
                     recent_blocks_display.append({
@@ -165,7 +169,7 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
             # PREVIOUS 24H
             bucket = "prev"
 
-        # --- GLOBAL AGGREGATES (New Logic: Count EVERYTHING) ---
+        # --- GLOBAL AGGREGATES (Counts Everything: Pass + Block) ---
         stats[bucket]["volume"] += amount
         stats[bucket]["count"] += 1
         
@@ -173,22 +177,18 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         elif decision == "REJECT": stats[bucket]["reject"] += 1
         elif decision == "HOLD": stats[bucket]["hold"] += 1
 
-    # --- 5. CALCULATIONS ---
+    # --- 5. KPI CALCULATIONS ---
     
-    # KPI 1: Volume Monitored (ALL Txns)
     vol_curr = stats["curr"]["volume"]
     vol_trend = calculate_delta(vol_curr, stats["prev"]["volume"])
     
-    # KPI 2: Transaction Count (ALL Txns)
     cnt_curr = stats["curr"]["count"]
     cnt_trend = calculate_delta(cnt_curr, stats["prev"]["count"])
 
-    # KPI 3: Pass Rate
     pass_rate_curr = round((stats["curr"]["pass"] / cnt_curr * 100), 1) if cnt_curr else 0.0
     pass_rate_prev = round((stats["prev"]["pass"] / stats["prev"]["count"] * 100), 1) if stats["prev"]["count"] else 0.0
     pass_rate_trend = round(pass_rate_curr - pass_rate_prev, 1)
 
-    # Latency
     avg_rule = int(metrics_latency["rule_sum"] / metrics_latency["rule_count"]) if metrics_latency["rule_count"] else 0
     avg_ai = int(metrics_latency["ai_sum"] / metrics_latency["ai_count"]) if metrics_latency["ai_count"] else 0
 
@@ -210,14 +210,14 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         "previous": [stats["prev"]["pass"], stats["prev"]["hold"], stats["prev"]["reject"]]
     }
     
-    # Chart 2: Source Distribution (Rule vs AI) - REPLACES THREATS
+    # Chart 2: Source Distribution (Rule vs AI)
     source_distribution_data = {
         "labels": ["PASS", "HOLD", "REJECT"],
         "rule": [source_stats["RULE"]["PASS"], source_stats["RULE"]["HOLD"], source_stats["RULE"]["REJECT"]],
         "ai":   [source_stats["AI"]["PASS"],   source_stats["AI"]["HOLD"],   source_stats["AI"]["REJECT"]]
     }
 
-    # Other Charts
+    # Prepare Time Series Arrays
     all_hours = sorted(set(hourly_latency.keys()) | set(hourly_vol.keys()))
     chart_rule_lat, chart_ai_lat, chart_vol_pass, chart_vol_block = [], [], [], []
     
@@ -234,7 +234,7 @@ async def dashboard_index(request: Request, db: AsyncSession = Depends(get_db)):
         "volume": { "labels": all_hours, "pass": chart_vol_pass, "block": chart_vol_block },
         "latency": { "labels": all_hours, "rule": chart_rule_lat, "ai": chart_ai_lat },
         "decisions_trend": decision_trend_data,
-        "source_dist": source_distribution_data # New Dataset
+        "source_dist": source_distribution_data
     }
 
     return templates.TemplateResponse("dashboard/index.html", {

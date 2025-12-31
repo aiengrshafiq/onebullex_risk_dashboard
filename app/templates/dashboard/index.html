@@ -59,10 +59,13 @@
 
 <div class="row g-4 mb-4">
     <div class="col-md-3">
-        <div class="kpi-card kpi-green">
+        <div class="kpi-card kpi-green" style="
+    padding-bottom: 10px;
+    padding-top: 10px;
+">
             <div class="kpi-value">{{ kpi.value_secured }}</div>
             <div class="kpi-label">
-                <span><i class="fas fa-coins me-2"></i>Volume Monitored</span>
+                <span  data-bs-toggle="tooltip" data-bs-placement="top" title="Volume Monitored"><i class="fas fa-coins me-2"></i>VolMon</span>
                 <span class="trend-badge {{ 'trend-up' if kpi.value_trend >= 0 else 'trend-down' }}">
                     <i class="fas fa-{{ 'arrow-up' if kpi.value_trend >= 0 else 'arrow-down' }}"></i> {{ kpi.value_trend | abs }}%
                 </span>
